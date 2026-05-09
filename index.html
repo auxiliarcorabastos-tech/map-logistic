@@ -129,8 +129,14 @@ font-weight:bold;
 color:#28a745;
 }
 #puntoFinal{
-background:#fff3cd;
-border:2px solid #ffc107;
+background:#fff3cd !important;
+border:2px solid #ffc107 !important;
+animation: pulse 2s infinite;
+}
+@keyframes pulse{
+0%{box-shadow:0 0 0 0 rgba(255,193,7,0.7);}
+70%{box-shadow:0 0 0 10px rgba(255,193,7,0);}
+100%{box-shadow:0 0 0 0 rgba(255,193,7,0);}
 }
 #controlesRuta{
 background:#e8f5e8;
@@ -138,6 +144,12 @@ padding:15px;
 border-radius:12px;
 margin:15px 0;
 border:1px solid #28a745;
+}
+.loading{
+text-align:center;
+padding:15px;
+color:#2d89ef;
+font-weight:bold;
 }
 @media(max-width:768px){
 body{
@@ -160,12 +172,12 @@ height:55vh;
 <h1>🚚 MAP LOGISTICS PRO</h1>
 <div class="instrucciones">
 📌 <b>INSTRUCCIONES</b><br><br>
-1. Busca direcciones o toca el mapa.<br>
-2. Guarda pedidos.<br>
-3. <b>✅ RUTAS REALES por carreteras</b><br>
-4. Selecciona <b>punto final</b> de la ruta.<br>
-5. Optimiza automáticamente.<br>
-6. GPS, llamadas y WhatsApp.
+✅ <b>RUTAS REALES por carreteras</b><br>
+1. Busca direcciones o toca el mapa<br>
+2. Guarda pedidos<br>
+3. Selecciona <b>punto final</b><br>
+4. <b>Optimiza automáticamente</b><br>
+5. GPS, WhatsApp, llamadas
 </div>
 
 <div class="form-group">
@@ -213,19 +225,7 @@ height:55vh;
 </button>
 
 <div id="controlesRuta" style="display:none;">
-<h3>🛣️ Configuración Ruta</h3>
-<div class="form-group">
-<label>Punto Final</label>
-<select id="puntoFinalSelect">
-<option value="vuelta">Vuelta a origen</option>
-</select>
-</div>
-<button class="btn-success" onclick="optimizarRuta()">
-🚀 Optimizar Ruta Real
-</button>
-<button class="btn-warning" onclick="limpiarRuta()">
-🗑️ Limpiar Ruta
-</button>
+<!-- Se llena dinámicamente -->
 </div>
 
 <div id="listaPedidos"></div>
@@ -243,7 +243,7 @@ attribution:'© OpenStreetMap'
 }).addTo(map);
 
 // =====================
-// VARIABLES
+// VARIABLES GLOBALES
 // =====================
 let pedidos = [];
 let markers = [];
@@ -256,13 +256,23 @@ let puntoFinal = null;
 // =====================
 // GPS
 // =====================
-navigator.geolocation.getCurrentPosition(position=>{
+if(navigator.geolocation){
+navigator.geolocation.getCurrentPosition(
+position=>{
 const lat = position.coords.latitude;
 const lon = position.coords.longitude;
 window.miUbicacion = {lat, lon};
 map.setView([lat,lon],13);
-L.marker([lat,lon]).addTo(map).bindPopup('📍 Tu ubicación').openPopup();
-}, ()=>{}, {enableHighAccuracy:true});
+L.marker([lat,lon], {
+icon: L.divIcon({
+html: '<div style="background:#28a745;color:white;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.3);">📍</div>'
+})
+}).addTo(map).bindPopup('✅ Tu ubicación actual').openPopup();
+},
+()=>console.log('GPS no disponible'),
+{enableHighAccuracy:true, timeout:10000, maximumAge:60000}
+);
+}
 
 // =====================
 // BUSCAR DIRECCIONES
@@ -280,13 +290,13 @@ const data = await response.json();
 contenedor.innerHTML = '';
 
 if(!data.features || !data.features.length){
-contenedor.innerHTML = `<div style="padding:10px;color:red;">❌ No se encontraron coincidencias</div>`;
+contenedor.innerHTML = `<div style="padding:10px;color:#dc3545;">❌ No se encontraron resultados</div>`;
 return;
 }
 
-data.features.forEach(lugar=>{
+data.features.slice(0,8).forEach(lugar=>{
 const propiedades = lugar.properties || {};
-const nombre = `${propiedades.name || ''} ${propiedades.street || ''} ${propiedades.city || ''}`.trim();
+const nombre = `${propiedades.name || ''} ${propiedades.street || ''} ${propiedades.city || ''} ${propiedades.postcode || ''}`.trim();
 const lat = lugar.geometry.coordinates[1];
 const lon = lugar.geometry.coordinates[0];
 const item = document.createElement('div');
@@ -296,25 +306,29 @@ item.onclick = ()=>{ seleccionarSugerencia(nombre, lat, lon); };
 contenedor.appendChild(item);
 });
 }catch(error){
-contenedor.innerHTML = `<div style="padding:10px;color:red;">❌ Error buscando direcciones</div>`;
+contenedor.innerHTML = `<div style="padding:10px;color:#dc3545;">❌ Error de búsqueda</div>`;
 }
 }
 
 // =====================
-// SELECCIONAR
+// SELECCIONAR SUGERENCIA
 // =====================
 function seleccionarSugerencia(direccion, lat, lon){
 document.getElementById('direccion').value = direccion;
-document.getElementById('sugerencias').innerHTML = '';
+document.getElementById('sugerencias').style.display = 'none';
 puntoSeleccionado = {lat, lon};
 
 if(markerSeleccionado) map.removeLayer(markerSeleccionado);
-markerSeleccionado = L.marker([lat,lon]).addTo(map).bindPopup(direccion).openPopup();
+markerSeleccionado = L.marker([lat,lon], {
+icon: L.divIcon({
+html: '<div style="background:#ff6b35;color:white;width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;">🎯</div>'
+})
+}).addTo(map).bindPopup(`📍 ${direccion}`).openPopup();
 map.setView([lat,lon],17);
 }
 
 // =====================
-// CLICK MAPA
+// CLICK EN MAPA
 // =====================
 map.on('click',function(e){
 const lat = e.latlng.lat;
@@ -322,7 +336,11 @@ const lon = e.latlng.lng;
 puntoSeleccionado = {lat, lon};
 
 if(markerSeleccionado) map.removeLayer(markerSeleccionado);
-markerSeleccionado = L.marker([lat,lon]).addTo(map).bindPopup('📍 Punto seleccionado').openPopup();
+markerSeleccionado = L.marker([lat,lon], {
+icon: L.divIcon({
+html: '<div style="background:#ff6b35;color:white;width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;">🎯</div>'
+})
+}).addTo(map).bindPopup('📍 Punto seleccionado').openPopup();
 map.setView([lat,lon],17);
 });
 
@@ -344,12 +362,12 @@ lon: puntoSeleccionado?.lon,
 estado: 'Pendiente'
 };
 
-if(!pedido.cliente || !pedido.direccion){
-alert('Completa cliente y dirección');
+if(!pedido.cliente?.trim() || !pedido.direccion?.trim()){
+alert('⚠️ Completa cliente y dirección');
 return;
 }
-if(!pedido.lat){
-alert('Selecciona una dirección válida');
+if(!pedido.lat || !pedido.lon){
+alert('⚠️ Selecciona una ubicación en el mapa');
 return;
 }
 
@@ -361,74 +379,87 @@ limpiarFormulario();
 }
 
 // =====================
+// RENDER PEDIDOS
+// =====================
+function renderPedidos(){
+const lista = document.getElementById('listaPedidos');
+lista.innerHTML = '';
+markers.forEach(m=>map.removeLayer(m));
+markers = [];
+
+pedidos.forEach((pedido,index)=>{
+const icono = L.divIcon({
+className: 'custom-icon',
+html: `<div style="background:#2d89ef;color:white;width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;">${index+1}</div>`
+});
+const marker = L.marker([pedido.lat,pedido.lon], {icon:icono})
+.addTo(map)
+.bindPopup(`<b>${index+1}. ${pedido.cliente}</b><br>${pedido.direccion}<br>📞 ${pedido.telefono}`);
+marker.bindTooltip(`${index+1}`, {permanent:true, direction:'top', className:'custom-tooltip'});
+markers.push(marker);
+
+const div = document.createElement('div');
+div.className = 'pedido';
+if(index == puntoFinal) div.id = 'puntoFinal';
+div.onclick = ()=> {
+map.setView([pedido.lat,pedido.lon], 17);
+marker.openPopup();
+document.getElementById('puntoFinalSelect').value = index;
+puntoFinal = index;
+};
+
+div.innerHTML = `
+<h3 style="margin:0 0 5px 0;">${index+1}. ${pedido.cliente}</h3>
+<p style="margin:5px 0;font-size:13px;">📍 ${pedido.direccion}</p>
+<p style="margin:5px 0;font-size:13px;">📞 ${pedido.telefono}</p>
+<div class="estado">${pedido.estado}</div>
+<div style="display:flex;gap:4px;">
+<button onclick="event.stopPropagation();abrirRuta(${pedido.lat},${pedido.lon});" style="flex:1;padding:8px;font-size:12px;">
+🚗 Ruta
+</button>
+<button onclick="event.stopPropagation();llamar('${pedido.telefono}');" style="flex:1;padding:8px;font-size:12px;background:#25D366;color:white;">
+📱
+</button>
+</div>
+<button onclick="event.stopPropagation();enviarWhatsapp('${pedido.telefono}','${pedido.cliente}');" style="width:100%;margin-top:8px;padding:8px;font-size:12px;background:#25D366;color:white;">
+💬 WhatsApp
+</button>
+`;
+lista.appendChild(div);
+});
+}
+
+// =====================
 // ACTUALIZAR CONTROLES RUTA
 // =====================
 function actualizarControlesRuta(){
 const controles = document.getElementById('controlesRuta');
-const select = document.getElementById('puntoFinalSelect');
 if(pedidos.length === 0){
 controles.style.display = 'none';
 return;
 }
 
 controles.style.display = 'block';
-select.innerHTML = '<option value="vuelta">🏠 Vuelta a origen</option>';
-pedidos.forEach((pedido, index)=>{
-const option = document.createElement('option');
-option.value = index;
-option.textContent = `${index+1}. ${pedido.cliente}`;
-select.appendChild(option);
-});
-}
-
-// =====================
-// MOSTRAR PEDIDOS
-// =====================
-function renderPedidos(){
-document.getElementById('listaPedidos').innerHTML = '';
-markers.forEach(m=>map.removeLayer(m));
-markers = [];
-
-pedidos.forEach((pedido,index)=>{
-const icono = L.divIcon({
-className: '',
-html: `<div style="background:#2d89ef;color:white;width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${index+1}</div>`
-});
-const marker = L.marker([pedido.lat,pedido.lon], {icon:icono})
-.addTo(map)
-.bindPopup(`<b>${index+1}. ${pedido.cliente}</b><br>${pedido.direccion}`);
-marker.bindTooltip(`${index+1}. ${pedido.cliente}`, {permanent:true, direction:'top'});
-markers.push(marker);
-
-const div = document.createElement('div');
-div.className = 'pedido';
-div.onclick = ()=> {
-map.setView([pedido.lat,pedido.lon], 17);
-marker.openPopup();
-};
-if(index == puntoFinal) div.id = 'puntoFinal';
-
-div.innerHTML = `
-<h3>${index+1}. ${pedido.cliente}</h3>
-<p>📍 ${pedido.direccion}</p>
-<p>📞 ${pedido.telefono}</p>
-<div class="estado">${pedido.estado}</div>
-<button onclick="event.stopPropagation();abrirRuta(${pedido.lat},${pedido.lon})" style="width:48%;margin-right:4%;">
-🚗 Navegar
+controles.innerHTML = `
+<h3 style="margin:0 0 10px 0;">🛣️ Configuración de Ruta</h3>
+<div class="form-group">
+<label>Punto Final</label>
+<select id="puntoFinalSelect" onchange="puntoFinal=this.value">
+<option value="vuelta">🏠 Regresar al origen</option>
+${pedidos.map((p,i)=>`<option value="${i}" ${i==puntoFinal?'selected':''}>${i+1}. ${p.cliente}</option>`).join('')}
+</select>
+</div>
+<button class="btn-success" onclick="optimizarRuta()" style="margin-bottom:8px;">
+🚀 Calcular Ruta Óptima
 </button>
-<button onclick="event.stopPropagation();llamar('${pedido.telefono}')" style="width:48%;">
-📞 Llamar
-</button>
-<button onclick="event.stopPropagation();enviarWhatsapp('${pedido.telefono}','${pedido.cliente}')" style="width:100%;margin-top:8px;background:#25D366;">
-💬 WhatsApp
+<button class="btn-warning" onclick="limpiarRuta()">
+🗑️ Limpiar Todo
 </button>
 `;
-document.getElementById('listaPedidos').appendChild(div);
-});
 }
 
 // =====================
-// LIMPIAR RUTA REAL
+// LIMPIAR RUTA
 // =====================
 function limpiarRuta(){
 if(rutaLayer) map.removeLayer(rutaLayer);
@@ -440,123 +471,193 @@ document.querySelectorAll('.pedido').forEach(p=>p.removeAttribute('id'));
 }
 
 // =====================
-// OPTIMIZAR RUTA REAL (OSRM)
+// OPTIMIZAR RUTA REAL (FIX CORS COMPLETO)
 // =====================
 async function optimizarRuta(){
 if(pedidos.length < 1) return;
 
 limpiarRuta();
+mostrarLoading(true);
 
 const origen = window.miUbicacion || {lat: 4.7110, lon: -74.0721};
 const puntos = [origen];
-
 pedidos.forEach(p=>puntos.push(p));
 
-let destino = origen; // Por defecto vuelta al origen
+let destino = origen;
 const puntoFinalIndex = parseInt(document.getElementById('puntoFinalSelect').value);
 if(puntoFinalIndex !== 0 && !isNaN(puntoFinalIndex)){
 destino = pedidos[puntoFinalIndex];
-puntoFinal = puntoFinalIndex;
 }
 
 try{
-document.getElementById('controlesRuta').innerHTML += '<div style="text-align:center;padding:10px;"><span>🔄 Calculando ruta óptima...</span></div>';
+const coordenadas = puntos.map(p=>`${p.lon.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
+const proxyUrl = 'https://api.allorigins.win/raw?url=';
+const osrmUrl = `https://router.project-osrm.org/trip/v1/driving/${coordenadas}?overview=full`;
+const fullUrl = proxyUrl + encodeURIComponent(osrmUrl);
 
-const coordenadas = puntos.map(p=>`${p.lon},${p.lat}`).join(';');
-const url = `https://router.project-osrm.org/trip/v1/driving/${coordenadas}?overview=full&steps=true`;
-const response = await fetch(url);
+const response = await fetch(fullUrl, {timeout: 10000});
 const data = await response.json();
 
 if(data.trips && data.trips.length > 0){
 const trip = data.trips[0];
 const ruta = trip.geometry.coordinates.map(coord=>[coord[1], coord[0]]);
 
-// Dibujar ruta real
 rutaLayer = L.polyline(ruta, {
 color: '#2d89ef',
-weight: 6,
+weight: 7,
 opacity: 0.9,
-smoothFactor: 1
+smoothFactor: 1,
+dashArray: '10, 5'
 }).addTo(map);
 
-// Marcar waypoints
 puntos.forEach((punto, index)=>{
 const color = index === 0 ? '#28a745' : index === puntos.length-1 ? '#ffc107' : '#2d89ef';
 const icono = L.divIcon({
-className: '',
-html: `<div style="background:${color};color:white;width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:14px;">${index+1}</div>`
+html: `<div style="background:${color};color:white;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:4px solid white;box-shadow:0 4px 15px rgba(0,0,0,0.4);font-size:14px;">${index+1}</div>`
 });
 const marker = L.marker([punto.lat, punto.lon], {icon:icono}).addTo(map);
 rutaMarkers.push(marker);
 });
 
-// Distancia y tiempo
 const distancia = (trip.distance / 1000).toFixed(1);
 const tiempo = Math.round(trip.duration / 60);
-map.fitBounds(rutaLayer.getBounds());
+map.fitBounds(rutaLayer.getBounds(), {padding: [30,30]});
 
+actualizarControlesRutaConInfo(distancia, tiempo, '🔵 OSRM Pro');
+mostrarLoading(false);
+return;
+}
+
+// BACKUP: Google Directions
+await rutaGoogleBackup(puntos, destino);
+
+} catch(error){
+console.error('Error OSRM:', error);
+mostrarLoading(false);
+alert('🔄 Probando ruta alternativa...');
+rutaGoogleBackup(puntos, destino);
+}
+}
+
+async function rutaGoogleBackup(puntos, destino){
+mostrarLoading(true, '🟠 Google Backup');
+try{
+const origen = puntos[0];
+const waypoints = puntos.slice(1, -1).map(p=>`${p.lat.toFixed(6)},${p.lon.toFixed(6)}`).join('|');
+const destinoStr = `${destino.lat.toFixed(6)},${destino.lon.toFixed(6)}`;
+
+const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origen.lat},${origen.lon}&destination=${destinoStr}&waypoints=optimize:true|${waypoints}&sensor=false`;
+const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+const response = await fetch(proxyUrl);
+const data = await response.json();
+
+if(data.routes && data.routes.length > 0){
+const route = data.routes[0];
+const rutaCoords = route.overview_path.map(point=>[point.lat, point.lng]);
+
+rutaLayer = L.polyline(rutaCoords, {
+color: '#ff6b35',
+weight: 7,
+opacity: 0.9,
+smoothFactor: 1
+}).addTo(map);
+
+puntos.forEach((punto, index)=>{
+const color = index === 0 ? '#28a745' : index === puntos.length-1 ? '#ffc107' : '#ff6b35';
+const icono = L.divIcon({
+html: `<div style="background:${color};color:white;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:4px solid white;box-shadow:0 4px 15px rgba(0,0,0,0.4);font-size:14px;">${index+1}</div>`
+});
+const marker = L.marker([punto.lat, punto.lon], {icon:icono}).addTo(map);
+rutaMarkers.push(marker);
+});
+
+const distancia = (route.legs.reduce((sum, leg)=>sum+leg.distance.value, 0)/1000).toFixed(1);
+const tiempo = Math.round(route.legs.reduce((sum, leg)=>sum+leg.duration.value, 0)/60);
+map.fitBounds(rutaLayer.getBounds(), {padding: [30,30]});
+
+actualizarControlesRutaConInfo(distancia, tiempo, '🟠 Google Backup');
+mostrarLoading(false);
+}
+} catch(e){
+mostrarLoading(false);
+console.error('Backup falló:', e);
+}
+}
+
+function mostrarLoading(mostrar, texto='🔄 Calculando ruta óptima...'){
+const controles = document.getElementById('controlesRuta');
+if(mostrar){
+controles.innerHTML += `<div class="loading">${texto}</div>`;
+} else {
+controles.querySelectorAll('.loading').forEach(el=>el.remove());
+}
+}
+
+function actualizarControlesRutaConInfo(distancia, tiempo, fuente){
 document.getElementById('controlesRuta').innerHTML = `
-<h3>🛣️ Configuración Ruta</h3>
-<div style="background:#d4edda;padding:10px;border-radius:8px;margin:10px 0;">
-📏 <b>${distancia} km</b> | ⏱️ <b>${tiempo} min</b>
+<h3 style="margin:0 0 10px 0;">✅ Ruta Calculada ${fuente}</h3>
+<div style="background:#d4edda;padding:15px;border-radius:12px;margin:10px 0;font-size:18px;text-align:center;font-weight:bold;">
+📏 <span style="color:#28a745;">${distancia} km</span> 
+| ⏱️ <span style="color:#2d89ef;">${tiempo} minutos</span>
 </div>
 <div class="form-group">
 <label>Punto Final</label>
-<select id="puntoFinalSelect">
-<option value="vuelta">🏠 Vuelta a origen</option>
+<select id="puntoFinalSelect" onchange="puntoFinal=this.value">
+<option value="vuelta">🏠 Regresar al origen</option>
 ${pedidos.map((p,i)=>`<option value="${i}" ${i==puntoFinal?'selected':''}>${i+1}. ${p.cliente}</option>`).join('')}
 </select>
 </div>
-<button class="btn-success" onclick="optimizarRuta()">🔄 Recalcular</button>
-<button class="btn-danger" onclick="limpiarRuta()">🗑️ Limpiar</button>
+<button class="btn-success" onclick="optimizarRuta()" style="margin-bottom:8px;">
+🔄 Recalcular Ruta
+</button>
+<button class="btn-danger" onclick="limpiarRuta()">
+🗑️ Limpiar Ruta
+</button>
 `;
-
-} else {
-alert('No se pudo calcular la ruta');
-}
-} catch(error){
-console.error('Error OSRM:', error);
-alert('Error al calcular ruta. Verifica conexión.');
-}
 }
 
 // =====================
 // FUNCIONES UTILIDADES
 // =====================
 function abrirRuta(lat,lon){
-window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`, '_blank');
+window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`, '_blank');
 }
 function llamar(numero){
-window.open(`tel:${numero}`);
+window.open(`tel:+573${numero}`);
 }
 function enviarWhatsapp(numero, cliente){
-const mensaje = encodeURIComponent(`Hola ${cliente}, Tu pedido va en camino 🚚\nMAP LOGISTICS`);
+const mensaje = encodeURIComponent(`Hola ${cliente} 👋\n\nTu pedido está en camino 🚚\n\n📦 MAP LOGISTICS\n✅ Ruta optimizada`);
 window.open(`https://wa.me/57${numero}?text=${mensaje}`, '_blank');
 }
 
 // =====================
-// STORAGE
+// STORAGE LOCAL
 // =====================
 function guardarStorage(){
-localStorage.setItem('pedidos', JSON.stringify(pedidos));
+localStorage.setItem('pedidosMapLogistics', JSON.stringify(pedidos));
 }
 function limpiarFormulario(){
-document.getElementById('barrio').value = '';
-document.getElementById('direccion').value = '';
-document.getElementById('cliente').value = '';
-document.getElementById('telefono').value = '';
-document.getElementById('observaciones').value = '';
+['barrio','direccion','cliente','telefono','observaciones'].forEach(id=>{
+document.getElementById(id).value = '';
+});
 document.getElementById('sugerencias').innerHTML = '';
 puntoSeleccionado = null;
 if(markerSeleccionado) map.removeLayer(markerSeleccionado);
 }
 
-// Cargar pedidos guardados
-const guardados = localStorage.getItem('pedidos');
+// =====================
+// CARGA INICIAL
+// =====================
+const guardados = localStorage.getItem('pedidosMapLogistics');
 if(guardados){
+try{
 pedidos = JSON.parse(guardados);
 renderPedidos();
 actualizarControlesRuta();
+if(pedidos.length > 0) optimizarRuta();
+}catch(e){
+console.log('Datos corruptos, iniciando limpio');
+}
 }
 </script>
 </body>
