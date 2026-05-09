@@ -27,7 +27,7 @@ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 margin:0;
 padding:0;
 box-sizing:border-box;
-font-family:Arial, sans-serif;
+font-family:Arial,sans-serif;
 }
 
 body{
@@ -37,17 +37,20 @@ overflow:hidden;
 background:#f5f5f5;
 }
 
-/* =========================
-   PANEL IZQUIERDO
-========================= */
+/* PANEL */
 
 .sidebar{
-width:360px;
+width:370px;
 background:white;
 padding:15px;
 overflow-y:auto;
 border-right:1px solid #ddd;
 z-index:1000;
+}
+
+#map{
+flex:1;
+height:100vh;
 }
 
 h1{
@@ -102,19 +105,6 @@ background:#28a745;
 color:white;
 }
 
-/* =========================
-   MAPA
-========================= */
-
-#map{
-flex:1;
-height:100vh;
-}
-
-/* =========================
-   TARJETAS PEDIDOS
-========================= */
-
 .pedido{
 background:#fafafa;
 padding:12px;
@@ -131,9 +121,12 @@ font-weight:bold;
 color:green;
 }
 
-/* =========================
-   RESPONSIVE CELULAR
-========================= */
+.custom-marker{
+background:transparent;
+border:none;
+}
+
+/* RESPONSIVE */
 
 @media(max-width:768px){
 
@@ -171,9 +164,7 @@ font-size:16px;
 
 <body>
 
-<!-- =========================
-     SIDEBAR
-========================= -->
+<!-- SIDEBAR -->
 
 <div class="sidebar">
 
@@ -253,7 +244,7 @@ id="telefono"
 
 <button
 class="btn-primary"
-onclick="agregarPedido()"
+onclick="guardarPedido()"
 >
 💾 Guardar Pedido
 </button>
@@ -269,9 +260,7 @@ onclick="optimizarRuta()"
 
 </div>
 
-<!-- =========================
-     MAPA
-========================= -->
+<!-- MAPA -->
 
 <div id="map"></div>
 
@@ -343,10 +332,12 @@ lat,
 lon
 };
 
+// ELIMINAR MARKER ANTERIOR
 if(markerSeleccionado){
 map.removeLayer(markerSeleccionado);
 }
 
+// CREAR NUEVO MARKER
 markerSeleccionado = L.marker([lat,lon])
 
 .addTo(map)
@@ -355,13 +346,57 @@ markerSeleccionado = L.marker([lat,lon])
 
 .openPopup();
 
+try{
+
+// REVERSE GEOCODING
+const response = await fetch(
+
+`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+
+);
+
+const data = await response.json();
+
+if(data.address){
+
+const address = data.address;
+
+// DIRECCIÓN
+document.getElementById('direccion').value =
+data.display_name || '';
+
+// BARRIO
+document.getElementById('barrio').value =
+address.suburb ||
+address.neighbourhood ||
+'';
+
+// MUNICIPIO
+document.getElementById('municipio').value =
+address.city ||
+address.town ||
+address.village ||
+'Bogotá';
+
+// DEPARTAMENTO
+document.getElementById('departamento').value =
+address.state || 'Cundinamarca';
+
+}
+
+}catch(error){
+
+console.log(error);
+
+}
+
 });
 
 // =========================
-// AGREGAR PEDIDO
+// GUARDAR / EDITAR
 // =========================
 
-async function agregarPedido(){
+async function guardarPedido(){
 
 const departamento =
 document.getElementById('departamento').value;
@@ -395,6 +430,7 @@ return;
 let lat;
 let lon;
 
+// SI SELECCIONÓ EN MAPA
 if(puntoSeleccionado){
 
 lat = puntoSeleccionado.lat;
@@ -423,6 +459,27 @@ lon = parseFloat(data[0].lon);
 
 }
 
+// EDITAR
+if(editandoPedidoId){
+
+const pedido = pedidos.find(
+p=>p.id===editandoPedidoId
+);
+
+pedido.departamento = departamento;
+pedido.municipio = municipio;
+pedido.barrio = barrio;
+pedido.direccion = direccion;
+pedido.cliente = cliente;
+pedido.telefono = telefono;
+pedido.observaciones = observaciones;
+pedido.lat = lat;
+pedido.lon = lon;
+
+editandoPedidoId = null;
+
+}else{
+
 const pedido = {
 
 id:Date.now(),
@@ -444,7 +501,9 @@ estado:'Pendiente'
 
 pedidos.push(pedido);
 
-guardarPedidos();
+}
+
+guardarStorage();
 
 renderPedidos();
 
@@ -470,6 +529,8 @@ pedidos.forEach((pedido,index)=>{
 
 const icono = L.divIcon({
 
+className:'custom-marker',
+
 html:`
 
 <div style="
@@ -491,7 +552,7 @@ ${index+1}
 
 `,
 
-className:''
+iconSize:[35,35]
 
 });
 
@@ -521,11 +582,67 @@ direction:'top'
 
 );
 
+// CLICK EN MAPA = SELECCIONAR TARJETA
+
+marker.on('click',()=>{
+
+const tarjeta =
+document.getElementById(
+`pedido-${pedido.id}`
+);
+
+if(tarjeta){
+
+document.querySelectorAll('.pedido')
+.forEach(el=>{
+
+el.style.border='1px solid #ddd';
+el.style.background='#fafafa';
+
+});
+
+tarjeta.style.border='3px solid #2d89ef';
+tarjeta.style.background='#eaf4ff';
+
+tarjeta.scrollIntoView({
+
+behavior:'smooth',
+block:'center'
+
+});
+
+}
+
+});
+
 markers.push(marker);
 
 const div = document.createElement('div');
 
 div.className='pedido';
+
+div.id=`pedido-${pedido.id}`;
+
+// CLICK EN TARJETA = IR AL MAPA
+
+div.onclick=()=>{
+
+map.setView([pedido.lat,pedido.lon],17);
+
+marker.openPopup();
+
+document.querySelectorAll('.pedido')
+.forEach(el=>{
+
+el.style.border='1px solid #ddd';
+el.style.background='#fafafa';
+
+});
+
+div.style.border='3px solid #2d89ef';
+div.style.background='#eaf4ff';
+
+};
 
 div.innerHTML=`
 
@@ -539,16 +656,62 @@ div.innerHTML=`
 ${pedido.estado}
 </div>
 
-<button onclick="abrirRuta(${pedido.lat},${pedido.lon})">
+<button onclick="
+event.stopPropagation();
+abrirRuta(${pedido.lat},${pedido.lon})
+">
 🚗 Navegar
 </button>
 
-<button onclick="marcarEntregado(
+<button onclick="
+event.stopPropagation();
+llamar('${pedido.telefono}')
+">
+📞 Llamar
+</button>
+
+<button onclick="
+event.stopPropagation();
+enviarWhatsapp(
+'${pedido.telefono}',
+'${pedido.cliente}'
+)
+">
+💬 WhatsApp
+</button>
+
+<button
+style="background:#28a745;color:white;"
+onclick="
+event.stopPropagation();
+marcarEntregado(
 ${pedido.id},
 '${pedido.telefono}',
 '${pedido.cliente}'
-)">
+)
+"
+>
 ✅ Pedido Entregado
+</button>
+
+<button
+style="background:#ffc107;color:black;"
+onclick="
+event.stopPropagation();
+editarPedido(${pedido.id})
+"
+>
+✏️ Editar
+</button>
+
+<button
+style="background:#dc3545;color:white;"
+onclick="
+event.stopPropagation();
+eliminarPedido(${pedido.id})
+"
+>
+🗑️ Eliminar
 </button>
 
 `;
@@ -558,6 +721,147 @@ document
 .appendChild(div);
 
 });
+
+}
+
+// =========================
+// LLAMAR
+// =========================
+
+function llamar(numero){
+
+window.open(`tel:${numero}`);
+
+}
+
+// =========================
+// WHATSAPP
+// =========================
+
+function enviarWhatsapp(numero,cliente){
+
+const mensaje = encodeURIComponent(
+
+`Hola ${cliente},
+
+Tu pedido va en camino 🚚
+
+MAP LOGISTICS`
+
+);
+
+window.open(
+
+`https://wa.me/57${numero}?text=${mensaje}`,
+
+'_blank'
+
+);
+
+}
+
+// =========================
+// ENTREGADO
+// =========================
+
+function marcarEntregado(id,telefono,cliente){
+
+const pedido = pedidos.find(
+p=>p.id===id
+);
+
+pedido.estado='ENTREGADO ✅';
+
+guardarStorage();
+
+renderPedidos();
+
+const mensaje = encodeURIComponent(
+
+`Hola ${cliente},
+
+Tu pedido ha sido entregado con satisfacción ✅🚚
+
+Gracias por confiar en MAP LOGISTICS.`
+
+);
+
+window.open(
+
+`https://wa.me/57${telefono}?text=${mensaje}`,
+
+'_blank'
+
+);
+
+}
+
+// =========================
+// EDITAR
+// =========================
+
+function editarPedido(id){
+
+const pedido = pedidos.find(
+p=>p.id===id
+);
+
+if(!pedido)return;
+
+editandoPedidoId=id;
+
+document.getElementById('departamento').value =
+pedido.departamento;
+
+document.getElementById('municipio').value =
+pedido.municipio;
+
+document.getElementById('barrio').value =
+pedido.barrio;
+
+document.getElementById('direccion').value =
+pedido.direccion;
+
+document.getElementById('cliente').value =
+pedido.cliente;
+
+document.getElementById('telefono').value =
+pedido.telefono;
+
+document.getElementById('observaciones').value =
+pedido.observaciones;
+
+map.setView([pedido.lat,pedido.lon],17);
+
+}
+
+// =========================
+// ELIMINAR
+// =========================
+
+function eliminarPedido(id){
+
+const confirmar = confirm(
+'¿Eliminar pedido?'
+);
+
+if(!confirmar)return;
+
+pedidos = pedidos.filter(
+p=>p.id!==id
+);
+
+guardarStorage();
+
+renderPedidos();
+
+if(rutaLayer){
+
+map.removeLayer(rutaLayer);
+
+rutaLayer=null;
+
+}
 
 }
 
@@ -577,6 +881,7 @@ return;
 
 let puntosRuta = [];
 
+// GPS INICIAL
 if(window.miUbicacion){
 
 puntosRuta.push(
@@ -585,6 +890,7 @@ puntosRuta.push(
 
 }
 
+// PEDIDOS
 pedidos.forEach(p=>{
 
 puntosRuta.push(`${p.lon},${p.lat}`);
@@ -592,6 +898,8 @@ puntosRuta.push(`${p.lon},${p.lat}`);
 });
 
 const coordenadas = puntosRuta.join(';');
+
+try{
 
 const response = await fetch(
 
@@ -625,6 +933,14 @@ map.fitBounds(
 rutaLayer.getBounds()
 );
 
+}catch(error){
+
+console.log(error);
+
+alert('No se pudo generar la ruta');
+
+}
+
 }
 
 // =========================
@@ -644,46 +960,10 @@ window.open(
 }
 
 // =========================
-// ENTREGADO
-// =========================
-
-function marcarEntregado(id,telefono,cliente){
-
-const pedido = pedidos.find(
-p=>p.id===id
-);
-
-pedido.estado='ENTREGADO ✅';
-
-guardarPedidos();
-
-renderPedidos();
-
-const mensaje = encodeURIComponent(
-
-`Hola ${cliente},
-
-Tu pedido ha sido entregado con satisfacción ✅🚚
-
-Gracias por confiar en MAP LOGISTICS.`
-
-);
-
-window.open(
-
-`https://wa.me/57${telefono}?text=${mensaje}`,
-
-'_blank'
-
-);
-
-}
-
-// =========================
 // STORAGE
 // =========================
 
-function guardarPedidos(){
+function guardarStorage(){
 
 localStorage.setItem(
 'pedidos',
@@ -691,6 +971,10 @@ JSON.stringify(pedidos)
 );
 
 }
+
+// =========================
+// LIMPIAR
+// =========================
 
 function limpiarFormulario(){
 
@@ -705,7 +989,7 @@ puntoSeleccionado=null;
 }
 
 // =========================
-// CARGAR
+// CARGAR STORAGE
 // =========================
 
 const guardados =
