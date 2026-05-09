@@ -143,6 +143,19 @@ font-weight:bold;
 color:green;
 }
 
+.cliente-label{
+
+background:#2d89ef;
+color:white;
+border:none;
+padding:6px 10px;
+border-radius:10px;
+font-size:12px;
+font-weight:bold;
+box-shadow:0 2px 8px rgba(0,0,0,0.2);
+
+}
+
 @media(max-width:768px){
 
 body{
@@ -176,7 +189,7 @@ height:55vh;
 
 📌 <b>INSTRUCCIONES</b><br><br>
 
-1. Busca barrios, colegios, parques o direcciones.<br>
+1. Busca barrios, colegios o direcciones.<br>
 2. También puedes tocar directamente el mapa.<br>
 3. Guarda pedidos.<br>
 4. Optimiza rutas automáticamente.<br>
@@ -236,7 +249,7 @@ id="barrio"
 <input
 type="text"
 id="direccion"
-placeholder="Ej: Corabastos"
+placeholder="Ej: Calle 80 # 96-45"
 onkeyup="buscarSugerencias()"
 />
 
@@ -373,6 +386,7 @@ L.marker([lat,lon])
 
 // =====================
 // BUSCAR DIRECCIONES
+// COLOMBIA
 // =====================
 
 async function buscarSugerencias(){
@@ -387,7 +401,7 @@ document.getElementById(
 'sugerencias'
 );
 
-if(texto.length < 2){
+if(texto.length < 3){
 
 contenedor.innerHTML='';
 
@@ -402,12 +416,22 @@ document.getElementById(
 'municipio'
 ).value || 'Bogotá';
 
+const departamento =
+document.getElementById(
+'departamento'
+).value || '';
+
 const query =
-`${texto} ${municipio} Colombia`;
+`
+${texto},
+${municipio},
+${departamento},
+Colombia
+`;
 
 const response = await fetch(
 
-`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=10`
+`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&addressdetails=1`
 
 );
 
@@ -416,8 +440,7 @@ await response.json();
 
 contenedor.innerHTML='';
 
-if(!data.features ||
-!data.features.length){
+if(!data.length){
 
 contenedor.innerHTML=`
 
@@ -426,7 +449,7 @@ padding:10px;
 color:red;
 ">
 
-❌ No se encontraron coincidencias
+❌ No se encontraron direcciones
 
 </div>
 
@@ -436,24 +459,16 @@ return;
 
 }
 
-data.features.forEach(lugar=>{
-
-const propiedades =
-lugar.properties || {};
+data.forEach(lugar=>{
 
 const nombre =
-`
-${propiedades.name || ''}
- ${propiedades.street || ''}
- ${propiedades.city || ''}
-`
-.trim();
+lugar.display_name;
 
 const lat =
-lugar.geometry.coordinates[1];
+parseFloat(lugar.lat);
 
 const lon =
-lugar.geometry.coordinates[0];
+parseFloat(lugar.lon);
 
 const item =
 document.createElement('div');
@@ -755,6 +770,21 @@ icon:icono
 <br>
 ${pedido.direccion}
 `);
+
+marker.bindTooltip(
+
+`
+${pedido.cliente}
+`,
+
+{
+permanent:true,
+direction:'top',
+offset:[0,-20],
+className:'cliente-label'
+}
+
+);
 
 markers.push(marker);
 
