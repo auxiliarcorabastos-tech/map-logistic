@@ -144,7 +144,6 @@ color:green;
 }
 
 .cliente-label{
-
 background:#2d89ef;
 color:white;
 border:none;
@@ -153,7 +152,6 @@ border-radius:10px;
 font-size:12px;
 font-weight:bold;
 box-shadow:0 2px 8px rgba(0,0,0,0.2);
-
 }
 
 @media(max-width:768px){
@@ -189,7 +187,7 @@ height:55vh;
 
 📌 <b>INSTRUCCIONES</b><br><br>
 
-1. Busca barrios, colegios o direcciones.<br>
+1. Busca barrios, conjuntos, parques o direcciones.<br>
 2. También puedes tocar directamente el mapa.<br>
 3. Guarda pedidos.<br>
 4. Optimiza rutas automáticamente.<br>
@@ -244,12 +242,12 @@ id="barrio"
 
 <div class="form-group">
 
-<label>Dirección</label>
+<label>Dirección o Zona Cercana</label>
 
 <input
 type="text"
 id="direccion"
-placeholder="Ej: Calle 80 # 96-45"
+placeholder="Ej: Conjunto Reservas de Castilla, Calle 80 # 96-45"
 onkeyup="buscarSugerencias()"
 />
 
@@ -386,7 +384,6 @@ L.marker([lat,lon])
 
 // =====================
 // BUSCAR DIRECCIONES
-// COLOMBIA
 // =====================
 
 async function buscarSugerencias(){
@@ -401,7 +398,7 @@ document.getElementById(
 'sugerencias'
 );
 
-if(texto.length < 3){
+if(texto.length < 2){
 
 contenedor.innerHTML='';
 
@@ -421,9 +418,15 @@ document.getElementById(
 'departamento'
 ).value || '';
 
+const barrio =
+document.getElementById(
+'barrio'
+).value || '';
+
 const query =
 `
 ${texto},
+${barrio},
 ${municipio},
 ${departamento},
 Colombia
@@ -431,7 +434,7 @@ Colombia
 
 const response = await fetch(
 
-`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&addressdetails=1`
+`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1`
 
 );
 
@@ -449,7 +452,7 @@ padding:10px;
 color:red;
 ">
 
-❌ No se encontraron direcciones
+❌ No se encontraron coincidencias
 
 </div>
 
@@ -476,8 +479,24 @@ document.createElement('div');
 item.className =
 'sugerencia-item';
 
-item.innerHTML =
-`📍 ${nombre}`;
+item.innerHTML = `
+
+<div style="
+font-weight:bold;
+margin-bottom:3px;
+">
+📍 ${nombre}
+</div>
+
+<div style="
+font-size:12px;
+color:#666;
+">
+Lat: ${lat.toFixed(5)}
+ | Lon: ${lon.toFixed(5)}
+</div>
+
+`;
 
 item.onclick = ()=>{
 
@@ -690,7 +709,7 @@ limpiarFormulario();
 }
 
 // =====================
-// RENDER PEDIDOS
+// MOSTRAR PEDIDOS
 // =====================
 
 function renderPedidos(){
@@ -773,9 +792,7 @@ ${pedido.direccion}
 
 marker.bindTooltip(
 
-`
-${pedido.cliente}
-`,
+`${pedido.cliente}`,
 
 {
 permanent:true,
@@ -982,10 +999,6 @@ rutaLayer.getBounds()
 }catch(error){
 
 console.log(error);
-
-alert(
-'Error generando ruta'
-);
 
 }
 
