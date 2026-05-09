@@ -8,6 +8,7 @@
 <title>MAP LOGISTICS</title>
 
 <meta name="theme-color" content="#2d89ef">
+
 <link rel="manifest" href="manifest.json">
 
 <link
@@ -120,7 +121,7 @@ background:white;
 border:1px solid #ccc;
 border-radius:8px;
 margin-top:5px;
-max-height:220px;
+max-height:250px;
 overflow-y:auto;
 position:absolute;
 width:100%;
@@ -185,11 +186,11 @@ height:55vh;
 
 📌 <b>INSTRUCCIONES</b><br><br>
 
-1. Busca direcciones, barrios, parques o colegios.<br>
-2. También puedes tocar el mapa.<br>
+1. Busca barrios, direcciones, parques o colegios.<br>
+2. También puedes seleccionar directamente en el mapa.<br>
 3. Guarda pedidos.<br>
 4. La ruta se optimiza automáticamente.<br>
-5. Usa WhatsApp, llamadas y navegación GPS.
+5. Usa navegación GPS, llamadas y WhatsApp.
 
 </div>
 
@@ -310,16 +311,16 @@ onclick="optimizarRuta()"
 
 <script>
 
-// ============================
-// API KEY
-// ============================
+// ===================================
+// API KEY GEOAPIFY
+// ===================================
 
 const API_KEY =
 '8fbf581c16a44f049c4b0e7b72677280';
 
-// ============================
+// ===================================
 // MAPA
-// ============================
+// ===================================
 
 const map = L.map('map').setView(
 [4.7110,-74.0721],
@@ -333,9 +334,9 @@ attribution:'© OpenStreetMap'
 }
 ).addTo(map);
 
-// ============================
+// ===================================
 // VARIABLES
-// ============================
+// ===================================
 
 let pedidos = [];
 let markers = [];
@@ -344,16 +345,17 @@ let rutaLayer = null;
 let puntoSeleccionado = null;
 let markerSeleccionado = null;
 
-let editandoPedidoId = null;
-
-// ============================
-// GPS
-// ============================
+// ===================================
+// GPS INICIAL
+// ===================================
 
 navigator.geolocation.getCurrentPosition(position=>{
 
-const lat = position.coords.latitude;
-const lon = position.coords.longitude;
+const lat =
+position.coords.latitude;
+
+const lon =
+position.coords.longitude;
 
 window.miUbicacion = {
 lat,
@@ -372,9 +374,9 @@ L.marker([lat,lon])
 
 });
 
-// ============================
-// AUTOCOMPLETE PRECISO
-// ============================
+// ===================================
+// BUSCAR SUGERENCIAS
+// ===================================
 
 async function buscarSugerencias(){
 
@@ -410,14 +412,12 @@ const query =
 
 const response = await fetch(
 
-`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&lang=es&limit=8&filter=countrycode:co&bias=countrycode:co&apiKey=8fbf581c16a44f049c4b0e7b72677280`
+`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&lang=es&limit=8&filter=countrycode:co&bias=countrycode:co&apiKey=${API_KEY}`
 
 );
 
 const data =
 await response.json();
-
-console.log(data);
 
 let html='';
 
@@ -450,8 +450,11 @@ const nombre =
 (lugar.formatted || '')
 .replace(/'/g,'');
 
-const lat = lugar.lat;
-const lon = lugar.lon;
+const lat =
+lugar.lat;
+
+const lon =
+lugar.lon;
 
 html += `
 
@@ -482,28 +485,13 @@ document.getElementById(
 
 console.log(error);
 
-document.getElementById(
-'sugerencias'
-).innerHTML = `
-
-<div style="
-padding:10px;
-color:red;
-">
-
-❌ Error buscando direcciones
-
-</div>
-
-`;
-
 }
 
 }
 
-// ============================
-// SELECCIONAR
-// ============================
+// ===================================
+// SELECCIONAR SUGERENCIA
+// ===================================
 
 function seleccionarSugerencia(
 direccion,
@@ -542,9 +530,9 @@ map.setView([lat,lon],17);
 
 }
 
-// ============================
+// ===================================
 // CLICK MAPA
-// ============================
+// ===================================
 
 map.on('click',function(e){
 
@@ -572,9 +560,9 @@ markerSeleccionado = L.marker([lat,lon])
 
 });
 
-// ============================
+// ===================================
 // GUARDAR PEDIDO
-// ============================
+// ===================================
 
 function guardarPedido(){
 
@@ -624,8 +612,8 @@ estado:'Pendiente'
 
 };
 
-if(!pedido.direccion ||
-!pedido.cliente){
+if(!pedido.cliente ||
+!pedido.direccion){
 
 alert(
 'Completa cliente y dirección'
@@ -638,7 +626,7 @@ return;
 if(!pedido.lat){
 
 alert(
-'Selecciona una ubicación válida'
+'Selecciona una dirección válida'
 );
 
 return;
@@ -657,9 +645,9 @@ limpiarFormulario();
 
 }
 
-// ============================
+// ===================================
 // RENDER PEDIDOS
-// ============================
+// ===================================
 
 function renderPedidos(){
 
@@ -796,9 +784,9 @@ document.getElementById(
 
 }
 
-// ============================
-// RUTA
-// ============================
+// ===================================
+// OPTIMIZAR RUTA
+// ===================================
 
 async function optimizarRuta(){
 
@@ -823,17 +811,18 @@ puntosRuta.push(
 });
 
 const coordenadas =
-puntosRuta.join(';');
+puntosRuta.join('|');
 
 try{
 
 const response = await fetch(
 
-`https://router.project-osrm.org/route/v1/driving/${coordenadas}?overview=full&geometries=geojson`
+`https://api.geoapify.com/v1/routing?waypoints=${coordenadas}&mode=drive&apiKey=${API_KEY}`
 
 );
 
-const data = await response.json();
+const data =
+await response.json();
 
 if(rutaLayer){
 
@@ -841,12 +830,12 @@ map.removeLayer(rutaLayer);
 
 }
 
-const route =
-data.routes[0]
+const coords =
+data.features[0]
 .geometry.coordinates;
 
 const latlngs =
-route.map(c=>[c[1],c[0]]);
+coords.map(c=>[c[1],c[0]]);
 
 rutaLayer = L.polyline(
 latlngs,
@@ -868,9 +857,9 @@ console.log(error);
 
 }
 
-// ============================
+// ===================================
 // FUNCIONES
-// ============================
+// ===================================
 
 function abrirRuta(lat,lon){
 
@@ -909,6 +898,10 @@ window.open(
 );
 
 }
+
+// ===================================
+// STORAGE
+// ===================================
 
 function guardarStorage(){
 
