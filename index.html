@@ -7,8 +7,6 @@
 
 <title>MAP LOGISTICS</title>
 
-<meta name="theme-color" content="#2d89ef">
-
 <link
 rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -178,7 +176,7 @@ height:55vh;
 
 📌 <b>INSTRUCCIONES</b><br><br>
 
-1. Busca barrios, direcciones, colegios o parques.<br>
+1. Busca barrios, direcciones, parques o colegios.<br>
 2. También puedes tocar el mapa.<br>
 3. Guarda pedidos.<br>
 4. La ruta se optimiza automáticamente.<br>
@@ -238,7 +236,7 @@ id="barrio"
 <input
 type="text"
 id="direccion"
-placeholder="Ej: Bosa Islandia"
+placeholder="Ej: Corabastos"
 onkeyup="buscarSugerencias()"
 />
 
@@ -302,13 +300,6 @@ onclick="optimizarRuta()"
 <script>
 
 // ======================
-// API KEY
-// ======================
-
-const API_KEY =
-'8fbf581c16a44f049c4b0e7b72677280';
-
-// ======================
 // MAPA
 // ======================
 
@@ -370,18 +361,15 @@ L.marker([lat,lon])
 
 async function buscarSugerencias(){
 
-const inputDireccion =
+const texto =
 document.getElementById(
 'direccion'
-);
+).value.trim();
 
 const contenedor =
 document.getElementById(
 'sugerencias'
 );
-
-const texto =
-inputDireccion.value.trim();
 
 if(texto.length < 2){
 
@@ -406,20 +394,18 @@ document.getElementById(
 const query =
 `${texto}, ${municipio}, ${departamento}, Colombia`;
 
-const url =
+const response = await fetch(
 
-`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&lang=es&limit=10&filter=countrycode:co&bias=countrycode:co&format=json&apiKey=${API_KEY}`;
+`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=10`
 
-const response =
-await fetch(url);
+);
 
 const data =
 await response.json();
 
 contenedor.innerHTML='';
 
-if(!data.results ||
-data.results.length===0){
+if(!data.length){
 
 contenedor.innerHTML=`
 
@@ -438,14 +424,17 @@ return;
 
 }
 
-for(const lugar of data.results){
+data.forEach(lugar=>{
 
 const nombre =
-(lugar.formatted || '')
+(lugar.display_name || '')
 .replace(/'/g,'');
 
-const lat = lugar.lat;
-const lon = lugar.lon;
+const lat =
+parseFloat(lugar.lat);
+
+const lon =
+parseFloat(lugar.lon);
 
 const item =
 document.createElement('div');
@@ -456,7 +445,7 @@ item.className =
 item.innerHTML =
 `📍 ${nombre}`;
 
-item.onclick = function(){
+item.onclick = ()=>{
 
 seleccionarSugerencia(
 nombre,
@@ -468,7 +457,7 @@ lon
 
 contenedor.appendChild(item);
 
-}
+});
 
 }catch(error){
 
@@ -492,7 +481,7 @@ color:red;
 }
 
 // ======================
-// SELECCIONAR
+// SELECCIONAR DIRECCION
 // ======================
 
 function seleccionarSugerencia(
@@ -536,7 +525,7 @@ map.setView([lat,lon],17);
 }
 
 // ======================
-// CLICK MAPA
+// CLICK EN MAPA
 // ======================
 
 map.on('click',function(e){
@@ -639,7 +628,7 @@ return;
 if(!pedido.lat){
 
 alert(
-'Selecciona una ubicación válida'
+'Selecciona una dirección válida'
 );
 
 return;
@@ -811,39 +800,6 @@ async function optimizarRuta(){
 
 if(pedidos.length < 1)return;
 
-let puntosRuta=[];
-
-if(window.miUbicacion){
-
-puntosRuta.push(
-`${window.miUbicacion.lat},${window.miUbicacion.lon}`
-);
-
-}
-
-pedidos.forEach(p=>{
-
-puntosRuta.push(
-`${p.lat},${p.lon}`
-);
-
-});
-
-const coordenadas =
-puntosRuta.join('|');
-
-try{
-
-const response =
-await fetch(
-
-`https://api.geoapify.com/v1/routing?waypoints=${coordenadas}&mode=drive&apiKey=${API_KEY}`
-
-);
-
-const data =
-await response.json();
-
 if(rutaLayer){
 
 map.removeLayer(
@@ -852,15 +808,27 @@ rutaLayer
 
 }
 
-const coords =
-data.features[0]
-.geometry.coordinates[0];
+const puntos = [];
 
-const latlngs =
-coords.map(c=>[
-c[1],
-c[0]
+if(window.miUbicacion){
+
+puntos.push([
+window.miUbicacion.lat,
+window.miUbicacion.lon
 ]);
+
+}
+
+pedidos.forEach(p=>{
+
+puntos.push([
+p.lat,
+p.lon
+]);
+
+});
+
+const latlngs = puntos;
 
 rutaLayer =
 L.polyline(
@@ -874,12 +842,6 @@ weight:5
 map.fitBounds(
 rutaLayer.getBounds()
 );
-
-}catch(error){
-
-console.log(error);
-
-}
 
 }
 
