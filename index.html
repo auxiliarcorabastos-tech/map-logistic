@@ -482,25 +482,12 @@ contenedor.appendChild(item);
 
 console.log(error);
 
-contenedor.innerHTML=`
-
-<div style="
-padding:10px;
-color:red;
-">
-
-❌ Error buscando direcciones
-
-</div>
-
-`;
-
 }
 
 }
 
 // =====================
-// SELECCIONAR
+// SELECCIONAR DIRECCION
 // =====================
 
 function seleccionarSugerencia(
@@ -544,7 +531,7 @@ map.setView([lat,lon],17);
 }
 
 // =====================
-// CLICK EN MAPA
+// CLICK MAPA
 // =====================
 
 map.on('click', async function(e){
@@ -688,7 +675,7 @@ limpiarFormulario();
 }
 
 // =====================
-// MOSTRAR PEDIDOS
+// RENDER PEDIDOS
 // =====================
 
 function renderPedidos(){
@@ -829,6 +816,30 @@ enviarWhatsapp(
 💬 WhatsApp
 </button>
 
+<button onclick="
+event.stopPropagation();
+editarPedido(${pedido.id})
+"
+style="
+background:#ffc107;
+color:black;
+margin-top:6px;
+">
+✏️ Editar
+</button>
+
+<button onclick="
+event.stopPropagation();
+eliminarPedido(${pedido.id})
+"
+style="
+background:#dc3545;
+color:white;
+margin-top:6px;
+">
+🗑️ Eliminar
+</button>
+
 `;
 
 document.getElementById(
@@ -947,6 +958,117 @@ alert(
 );
 
 }
+
+}
+
+// =====================
+// EDITAR PEDIDO
+// =====================
+
+function editarPedido(id){
+
+const pedido =
+pedidos.find(p=>p.id === id);
+
+if(!pedido)return;
+
+document.getElementById(
+'departamento'
+).value = pedido.departamento;
+
+document.getElementById(
+'municipio'
+).value = pedido.municipio;
+
+document.getElementById(
+'barrio'
+).value = pedido.barrio;
+
+document.getElementById(
+'direccion'
+).value = pedido.direccion;
+
+document.getElementById(
+'cliente'
+).value = pedido.cliente;
+
+document.getElementById(
+'telefono'
+).value = pedido.telefono;
+
+document.getElementById(
+'observaciones'
+).value = pedido.observaciones;
+
+puntoSeleccionado = {
+lat:pedido.lat,
+lon:pedido.lon
+};
+
+if(markerSeleccionado){
+
+map.removeLayer(markerSeleccionado);
+
+}
+
+markerSeleccionado =
+L.marker([
+pedido.lat,
+pedido.lon
+])
+
+.addTo(map)
+
+.bindPopup(
+'✏️ Editando pedido'
+)
+
+.openPopup();
+
+map.setView(
+[pedido.lat,pedido.lon],
+17
+);
+
+pedidos = pedidos.filter(
+p=>p.id !== id
+);
+
+guardarStorage();
+
+renderPedidos();
+
+optimizarRuta();
+
+alert(
+'Pedido cargado para editar'
+);
+
+}
+
+// =====================
+// ELIMINAR PEDIDO
+// =====================
+
+function eliminarPedido(id){
+
+const confirmar =
+confirm(
+'¿Eliminar este pedido?'
+);
+
+if(!confirmar)return;
+
+pedidos =
+pedidos.filter(
+p=>p.id !== id
+);
+
+guardarStorage();
+
+renderPedidos();
+
+optimizarRuta();
 
 }
 
