@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>MAP LOGISTICS</title>
+<title>MAP LOGISTICS PRO</title>
 
 <link
 rel="stylesheet"
@@ -31,7 +31,7 @@ background:#f5f5f5;
 }
 
 .sidebar{
-width:400px;
+width:420px;
 background:white;
 padding:15px;
 overflow-y:auto;
@@ -182,17 +182,20 @@ height:55vh;
 
 <div class="sidebar">
 
-<h1>🚚 MAP LOGISTICS</h1>
+<h1>🚚 MAP LOGISTICS PRO</h1>
 
 <div class="instrucciones">
 
-📌 <b>INSTRUCCIONES</b><br><br>
+📌 <b>FUNCIONES</b><br><br>
 
-1. Busca barrios, conjuntos, parques o direcciones.<br>
-2. También puedes tocar directamente el mapa.<br>
-3. Guarda pedidos.<br>
-4. Optimiza rutas automáticamente.<br>
-5. Usa GPS, llamadas y WhatsApp.
+✅ Búsqueda inteligente Colombia<br>
+✅ Conjuntos y barrios<br>
+✅ Ruta real por carreteras<br>
+✅ Optimización automática<br>
+✅ Inicio personalizado<br>
+✅ Final personalizado<br>
+✅ WhatsApp y llamadas<br>
+✅ Edición y eliminación<br>
 
 </div>
 
@@ -303,6 +306,22 @@ onclick="optimizarRuta()"
 >
 🛣️ Optimizar Ruta
 </button>
+
+<div class="form-group">
+
+<label>
+Punto de Inicio
+</label>
+
+<select id="inicioRuta">
+
+<option value="gps">
+Mi ubicación actual
+</option>
+
+</select>
+
+</div>
 
 <div class="form-group">
 
@@ -529,19 +548,6 @@ contenedor.appendChild(item);
 
 console.log(error);
 
-contenedor.innerHTML=`
-
-<div style="
-padding:10px;
-color:red;
-">
-
-❌ Error buscando ubicación
-
-</div>
-
-`;
-
 }
 
 },400);
@@ -754,6 +760,8 @@ map.removeLayer(m);
 
 markers=[];
 
+// FINAL
+
 const selectFinal =
 document.getElementById(
 'ultimoDestino'
@@ -762,7 +770,22 @@ document.getElementById(
 selectFinal.innerHTML =
 '<option value="">Automático</option>';
 
+// INICIO
+
+const selectInicio =
+document.getElementById(
+'inicioRuta'
+);
+
+selectInicio.innerHTML = `
+<option value="gps">
+Mi ubicación actual
+</option>
+`;
+
 pedidos.forEach((pedido,index)=>{
+
+// FINAL
 
 const option =
 document.createElement('option');
@@ -773,6 +796,20 @@ option.textContent =
 `${pedido.cliente} - ${pedido.direccion}`;
 
 selectFinal.appendChild(option);
+
+// INICIO
+
+const optionInicio =
+document.createElement('option');
+
+optionInicio.value = pedido.id;
+
+optionInicio.textContent =
+`${pedido.cliente}`;
+
+selectInicio.appendChild(optionInicio);
+
+// ICONO
 
 const icono =
 L.divIcon({
@@ -832,6 +869,8 @@ className:'cliente-label'
 );
 
 markers.push(marker);
+
+// CARD
 
 const div =
 document.createElement('div');
@@ -926,7 +965,7 @@ document.getElementById(
 }
 
 // =====================
-// OPTIMIZAR RUTA REAL
+// OPTIMIZACION INTELIGENTE
 // =====================
 
 async function optimizarRuta(){
@@ -943,12 +982,41 @@ rutaLayer
 
 let pedidosRuta = [...pedidos];
 
+// INICIO
+
+const inicioID =
+document.getElementById(
+'inicioRuta'
+).value;
+
+let inicioFijo = null;
+
+if(inicioID !== 'gps'){
+
+inicioFijo =
+pedidosRuta.find(
+p=>p.id == inicioID
+);
+
+pedidosRuta =
+pedidosRuta.filter(
+p=>p.id != inicioID
+);
+
+}
+
+// FINAL
+
 const ultimoID =
-document.getElementById('ultimoDestino')?.value;
+document.getElementById(
+'ultimoDestino'
+).value;
+
+let finalFijo = null;
 
 if(ultimoID){
 
-const ultimo =
+finalFijo =
 pedidosRuta.find(
 p=>p.id == ultimoID
 );
@@ -958,17 +1026,109 @@ pedidosRuta.filter(
 p=>p.id != ultimoID
 );
 
-if(ultimo){
+}
 
-pedidosRuta.push(ultimo);
+// PUNTO INICIAL
+
+let puntoActual = null;
+
+if(inicioFijo){
+
+puntoActual = inicioFijo;
+
+}else if(window.miUbicacion){
+
+puntoActual = {
+lat:window.miUbicacion.lat,
+lon:window.miUbicacion.lon
+};
+
+}else{
+
+puntoActual = pedidosRuta[0];
 
 }
 
+// ORDENAMIENTO
+
+const optimizados = [];
+
+while(pedidosRuta.length){
+
+let masCercano = null;
+let distanciaMin = Infinity;
+let index = 0;
+
+pedidosRuta.forEach((pedido,i)=>{
+
+const distancia =
+map.distance(
+[puntoActual.lat,puntoActual.lon],
+[pedido.lat,pedido.lon]
+);
+
+if(distancia < distanciaMin){
+
+distanciaMin = distancia;
+masCercano = pedido;
+index = i;
+
 }
+
+});
+
+optimizados.push(masCercano);
+
+puntoActual = masCercano;
+
+pedidosRuta.splice(index,1);
+
+}
+
+// RUTA FINAL
+
+let rutaFinal = [];
+
+if(inicioFijo){
+
+rutaFinal.push(inicioFijo);
+
+}
+
+rutaFinal = [
+...rutaFinal,
+...optimizados
+];
+
+if(finalFijo){
+
+rutaFinal = rutaFinal.filter(
+p=>p.id != finalFijo.id
+);
+
+rutaFinal.push(finalFijo);
+
+}
+
+// ACTUALIZAR ORDEN
+
+pedidos = [...rutaFinal];
+
+renderPedidos();
+
+guardarStorage();
+
+// COORDS
 
 const coords = [];
 
-if(window.miUbicacion){
+// GPS
+
+if(
+inicioID === 'gps'
+&&
+window.miUbicacion
+){
 
 coords.push(
 `${window.miUbicacion.lon},${window.miUbicacion.lat}`
@@ -976,13 +1136,17 @@ coords.push(
 
 }
 
-pedidosRuta.forEach(p=>{
+// PEDIDOS
+
+rutaFinal.forEach(p=>{
 
 coords.push(
 `${p.lon},${p.lat}`
 );
 
 });
+
+// OSRM
 
 const url = `
 https://router.project-osrm.org/route/v1/driving/
@@ -1002,14 +1166,19 @@ await response.json();
 
 if(!data.routes.length){
 
-alert('No se pudo generar la ruta');
+alert(
+'No se pudo generar la ruta'
+);
 
 return;
 
 }
 
 const ruta =
-data.routes[0].geometry.coordinates.map(c=>[
+data.routes[0]
+.geometry
+.coordinates
+.map(c=>[
 c[1],
 c[0]
 ]);
@@ -1033,7 +1202,7 @@ console.log(error);
 }
 
 // =====================
-// EDITAR PEDIDO
+// EDITAR
 // =====================
 
 function editarPedido(id){
@@ -1118,7 +1287,7 @@ alert(
 }
 
 // =====================
-// ELIMINAR PEDIDO
+// ELIMINAR
 // =====================
 
 function eliminarPedido(id){
@@ -1174,7 +1343,7 @@ encodeURIComponent(
 
 Tu pedido va en camino 🚚
 
-MAP LOGISTICS`
+MAP LOGISTICS PRO`
 
 );
 
