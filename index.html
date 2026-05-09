@@ -10,7 +10,6 @@
 <meta name="theme-color" content="#2d89ef">
 <link rel="manifest" href="manifest.json">
 
-<!-- LEAFLET -->
 <link
 rel="stylesheet"
 href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -116,11 +115,6 @@ background:#28a745;
 color:white;
 }
 
-.btn-warning{
-background:#ff9800;
-color:white;
-}
-
 #sugerencias{
 background:white;
 border:1px solid #ccc;
@@ -150,7 +144,6 @@ margin-top:10px;
 border-radius:12px;
 border:1px solid #ddd;
 cursor:pointer;
-transition:0.2s;
 }
 
 .estado{
@@ -184,8 +177,6 @@ height:55vh;
 
 <body>
 
-<!-- PANEL -->
-
 <div class="sidebar">
 
 <h1>🚚 MAP LOGISTICS</h1>
@@ -194,23 +185,17 @@ height:55vh;
 
 📌 <b>INSTRUCCIONES</b><br><br>
 
-1. Busca barrios, parques, colegios o direcciones.<br>
-2. También puedes seleccionar el punto directamente en el mapa.<br>
-3. Guarda el pedido.<br>
+1. Busca direcciones, barrios, parques o colegios.<br>
+2. También puedes tocar el mapa.<br>
+3. Guarda pedidos.<br>
 4. La ruta se optimiza automáticamente.<br>
-5. Usa navegación, llamadas y WhatsApp.
+5. Usa WhatsApp, llamadas y navegación GPS.
 
 </div>
-
-<!-- DEPARTAMENTO -->
 
 <div class="form-group">
 
 <label>Departamento</label>
-
-<small>
-Selecciona el departamento.
-</small>
 
 <select id="departamento">
 
@@ -230,15 +215,9 @@ Antioquia
 
 </div>
 
-<!-- MUNICIPIO -->
-
 <div class="form-group">
 
 <label>Municipio / Ciudad</label>
-
-<small>
-Ejemplo: Bogotá, Soacha, Zipaquirá.
-</small>
 
 <input
 type="text"
@@ -248,15 +227,9 @@ value="Bogotá"
 
 </div>
 
-<!-- BARRIO -->
-
 <div class="form-group">
 
 <label>Barrio</label>
-
-<small>
-Barrio del pedido.
-</small>
 
 <input
 type="text"
@@ -265,20 +238,14 @@ id="barrio"
 
 </div>
 
-<!-- DIRECCIÓN -->
-
 <div class="form-group">
 
 <label>Dirección</label>
 
-<small>
-Busca colegios, parques, conjuntos o barrios.
-</small>
-
 <input
 type="text"
 id="direccion"
-placeholder="Ej: Bosa Islandia, Colegio X"
+placeholder="Ej: Bosa Islandia"
 onkeyup="buscarSugerencias()"
 />
 
@@ -286,15 +253,9 @@ onkeyup="buscarSugerencias()"
 
 </div>
 
-<!-- CLIENTE -->
-
 <div class="form-group">
 
 <label>Cliente</label>
-
-<small>
-Persona que recibe el pedido.
-</small>
 
 <input
 type="text"
@@ -303,15 +264,9 @@ id="cliente"
 
 </div>
 
-<!-- TELÉFONO -->
-
 <div class="form-group">
 
 <label>Teléfono</label>
-
-<small>
-Número para llamadas y WhatsApp.
-</small>
 
 <input
 type="tel"
@@ -325,15 +280,9 @@ oninput="this.value=this.value.replace(/[^0-9]/g,'')"
 
 </div>
 
-<!-- OBSERVACIONES -->
-
 <div class="form-group">
 
 <label>Observaciones</label>
-
-<small>
-Indicaciones para el conductor.
-</small>
 
 <textarea id="observaciones"></textarea>
 
@@ -357,15 +306,20 @@ onclick="optimizarRuta()"
 
 </div>
 
-<!-- MAPA -->
-
 <div id="map"></div>
 
 <script>
 
-// =========================
+// ============================
+// API KEY
+// ============================
+
+const API_KEY =
+'8fbf581c16a44f049c4b0e7b72677280';
+
+// ============================
 // MAPA
-// =========================
+// ============================
 
 const map = L.map('map').setView(
 [4.7110,-74.0721],
@@ -379,9 +333,9 @@ attribution:'© OpenStreetMap'
 }
 ).addTo(map);
 
-// =========================
+// ============================
 // VARIABLES
-// =========================
+// ============================
 
 let pedidos = [];
 let markers = [];
@@ -392,9 +346,9 @@ let markerSeleccionado = null;
 
 let editandoPedidoId = null;
 
-// =========================
-// GPS INICIAL
-// =========================
+// ============================
+// GPS
+// ============================
 
 navigator.geolocation.getCurrentPosition(position=>{
 
@@ -418,9 +372,9 @@ L.marker([lat,lon])
 
 });
 
-// =========================
-// AUTOCOMPLETE GEOAPIFY
-// =========================
+// ============================
+// AUTOCOMPLETE PRECISO
+// ============================
 
 async function buscarSugerencias(){
 
@@ -429,7 +383,7 @@ document.getElementById(
 'direccion'
 ).value;
 
-if(texto.length < 3){
+if(texto.length < 2){
 
 document.getElementById(
 'sugerencias'
@@ -441,12 +395,22 @@ return;
 
 try{
 
-// ⚠️ REEMPLAZAR API KEY
-const API_KEY = 'TU_API_KEY';
+const municipio =
+document.getElementById(
+'municipio'
+).value || 'Bogotá';
+
+const departamento =
+document.getElementById(
+'departamento'
+).value || 'Cundinamarca';
+
+const query =
+`${texto}, ${municipio}, ${departamento}, Colombia`;
 
 const response = await fetch(
 
-`https://api.geoapify.com/v1/geocode/autocomplete?text=${texto}&filter=countrycode:co&bias=countrycode:co&limit=8&apiKey=${API_KEY}`
+`https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(query)}&filter=countrycode:co&bias=countrycode:co&limit=8&apiKey=${API_KEY}`
 
 );
 
@@ -454,17 +418,33 @@ const data = await response.json();
 
 let html='';
 
+if(!data.features.length){
+
+html = `
+<div style="
+padding:10px;
+color:red;
+">
+❌ No se encontraron coincidencias
+</div>
+`;
+
+}
+
 data.features.forEach(lugar=>{
 
+const props =
+lugar.properties;
+
 const nombre =
-(lugar.properties.formatted || '')
+(props.formatted || '')
 .replace(/'/g,'');
 
 const lat =
-lugar.properties.lat;
+props.lat;
 
 const lon =
-lugar.properties.lon;
+props.lon;
 
 html += `
 
@@ -499,9 +479,9 @@ console.log(error);
 
 }
 
-// =========================
-// SELECCIONAR SUGERENCIA
-// =========================
+// ============================
+// SELECCIONAR
+// ============================
 
 function seleccionarSugerencia(
 direccion,
@@ -540,11 +520,11 @@ map.setView([lat,lon],17);
 
 }
 
-// =========================
+// ============================
 // CLICK MAPA
-// =========================
+// ============================
 
-map.on('click', async function(e){
+map.on('click',function(e){
 
 const lat = e.latlng.lat;
 const lon = e.latlng.lng;
@@ -570,115 +550,80 @@ markerSeleccionado = L.marker([lat,lon])
 
 });
 
-// =========================
+// ============================
 // GUARDAR PEDIDO
-// =========================
+// ============================
 
-async function guardarPedido(){
+function guardarPedido(){
 
-const departamento =
-document.getElementById(
-'departamento'
-).value;
-
-const municipio =
-document.getElementById(
-'municipio'
-).value;
-
-const barrio =
-document.getElementById(
-'barrio'
-).value;
-
-const direccion =
-document.getElementById(
-'direccion'
-).value;
-
-const cliente =
-document.getElementById(
-'cliente'
-).value;
-
-const telefono =
-document.getElementById(
-'telefono'
-).value;
-
-const observaciones =
-document.getElementById(
-'observaciones'
-).value;
-
-if(!cliente || !direccion){
-
-alert('Completa cliente y dirección');
-
-return;
-
-}
-
-let lat;
-let lon;
-
-if(puntoSeleccionado){
-
-lat = puntoSeleccionado.lat;
-lon = puntoSeleccionado.lon;
-
-}else{
-
-alert(
-'Selecciona una dirección válida'
-);
-
-return;
-
-}
-
-// EDITAR
-if(editandoPedidoId){
-
-const pedido =
-pedidos.find(
-p=>p.id===editandoPedidoId
-);
-
-pedido.departamento = departamento;
-pedido.municipio = municipio;
-pedido.barrio = barrio;
-pedido.direccion = direccion;
-pedido.cliente = cliente;
-pedido.telefono = telefono;
-pedido.observaciones = observaciones;
-pedido.lat = lat;
-pedido.lon = lon;
-
-editandoPedidoId = null;
-
-}else{
-
-pedidos.push({
+const pedido = {
 
 id:Date.now(),
 
-departamento,
-municipio,
-barrio,
-direccion,
-cliente,
-telefono,
-observaciones,
+departamento:
+document.getElementById(
+'departamento'
+).value,
 
-lat,
-lon,
+municipio:
+document.getElementById(
+'municipio'
+).value,
+
+barrio:
+document.getElementById(
+'barrio'
+).value,
+
+direccion:
+document.getElementById(
+'direccion'
+).value,
+
+cliente:
+document.getElementById(
+'cliente'
+).value,
+
+telefono:
+document.getElementById(
+'telefono'
+).value,
+
+observaciones:
+document.getElementById(
+'observaciones'
+).value,
+
+lat:puntoSeleccionado?.lat,
+lon:puntoSeleccionado?.lon,
 
 estado:'Pendiente'
 
-});
+};
+
+if(!pedido.direccion ||
+!pedido.cliente){
+
+alert(
+'Completa cliente y dirección'
+);
+
+return;
 
 }
+
+if(!pedido.lat){
+
+alert(
+'Selecciona una ubicación válida'
+);
+
+return;
+
+}
+
+pedidos.push(pedido);
 
 guardarStorage();
 
@@ -690,9 +635,9 @@ limpiarFormulario();
 
 }
 
-// =========================
+// ============================
 // RENDER PEDIDOS
-// =========================
+// ============================
 
 function renderPedidos(){
 
@@ -819,40 +764,6 @@ enviarWhatsapp(
 💬 WhatsApp
 </button>
 
-<button
-style="background:#28a745;color:white;"
-onclick="
-event.stopPropagation();
-marcarEntregado(
-${pedido.id},
-'${pedido.telefono}',
-'${pedido.cliente}'
-)
-"
->
-✅ Entregado
-</button>
-
-<button
-style="background:#ffc107;color:black;"
-onclick="
-event.stopPropagation();
-editarPedido(${pedido.id})
-"
->
-✏️ Editar
-</button>
-
-<button
-style="background:#dc3545;color:white;"
-onclick="
-event.stopPropagation();
-eliminarPedido(${pedido.id})
-"
->
-🗑️ Eliminar
-</button>
-
 `;
 
 document.getElementById(
@@ -863,9 +774,9 @@ document.getElementById(
 
 }
 
-// =========================
-// OPTIMIZAR RUTA
-// =========================
+// ============================
+// RUTA
+// ============================
 
 async function optimizarRuta(){
 
@@ -935,9 +846,9 @@ console.log(error);
 
 }
 
-// =========================
+// ============================
 // FUNCIONES
-// =========================
+// ============================
 
 function abrirRuta(lat,lon){
 
@@ -977,88 +888,6 @@ window.open(
 
 }
 
-function marcarEntregado(
-id,
-telefono,
-cliente
-){
-
-const pedido =
-pedidos.find(p=>p.id===id);
-
-pedido.estado='ENTREGADO ✅';
-
-guardarStorage();
-
-renderPedidos();
-
-const mensaje =
-encodeURIComponent(
-
-`Hola ${cliente},
-
-Tu pedido ha sido entregado con satisfacción ✅🚚
-
-Gracias por confiar en MAP LOGISTICS.`
-
-);
-
-window.open(
-`https://wa.me/57${telefono}?text=${mensaje}`,
-'_blank'
-);
-
-}
-
-function editarPedido(id){
-
-const pedido =
-pedidos.find(
-p=>p.id===id
-);
-
-if(!pedido)return;
-
-editandoPedidoId=id;
-
-document.getElementById('departamento').value = pedido.departamento;
-document.getElementById('municipio').value = pedido.municipio;
-document.getElementById('barrio').value = pedido.barrio;
-document.getElementById('direccion').value = pedido.direccion;
-document.getElementById('cliente').value = pedido.cliente;
-document.getElementById('telefono').value = pedido.telefono;
-document.getElementById('observaciones').value = pedido.observaciones;
-
-puntoSeleccionado = {
-lat:pedido.lat,
-lon:pedido.lon
-};
-
-map.setView(
-[pedido.lat,pedido.lon],
-17
-);
-
-}
-
-function eliminarPedido(id){
-
-if(!confirm(
-'¿Eliminar pedido?'
-)) return;
-
-pedidos = pedidos.filter(
-p=>p.id!==id
-);
-
-guardarStorage();
-
-renderPedidos();
-
-optimizarRuta();
-
-}
-
 function guardarStorage(){
 
 localStorage.setItem(
@@ -1070,14 +899,31 @@ JSON.stringify(pedidos)
 
 function limpiarFormulario(){
 
-document.getElementById('barrio').value='';
-document.getElementById('direccion').value='';
-document.getElementById('cliente').value='';
-document.getElementById('telefono').value='';
-document.getElementById('observaciones').value='';
-document.getElementById('sugerencias').innerHTML='';
+document.getElementById(
+'barrio'
+).value='';
 
-puntoSeleccionado = null;
+document.getElementById(
+'direccion'
+).value='';
+
+document.getElementById(
+'cliente'
+).value='';
+
+document.getElementById(
+'telefono'
+).value='';
+
+document.getElementById(
+'observaciones'
+).value='';
+
+document.getElementById(
+'sugerencias'
+).innerHTML='';
+
+puntoSeleccionado=null;
 
 }
 
