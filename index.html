@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>MAP LOGISTICS PRO</title>
+<title>MAP LOGISTICS</title>
 
 <link
 rel="stylesheet"
@@ -31,7 +31,7 @@ background:#f5f5f5;
 }
 
 .sidebar{
-width:420px;
+width:400px;
 background:white;
 padding:15px;
 overflow-y:auto;
@@ -70,6 +70,12 @@ margin-bottom:5px;
 font-weight:bold;
 }
 
+small{
+color:gray;
+display:block;
+margin-bottom:5px;
+}
+
 input,
 textarea,
 select{
@@ -106,6 +112,11 @@ background:#28a745;
 color:white;
 }
 
+.btn-danger{
+background:#dc3545;
+color:white;
+}
+
 #sugerencias{
 background:white;
 border:1px solid #ccc;
@@ -116,7 +127,6 @@ overflow-y:auto;
 position:absolute;
 width:100%;
 z-index:99999;
-box-shadow:0 4px 12px rgba(0,0,0,0.15);
 }
 
 .sugerencia-item{
@@ -142,17 +152,6 @@ cursor:pointer;
 margin-top:8px;
 font-weight:bold;
 color:green;
-}
-
-.cliente-label{
-background:#2d89ef;
-color:white;
-border:none;
-padding:6px 10px;
-border-radius:10px;
-font-size:12px;
-font-weight:bold;
-box-shadow:0 2px 8px rgba(0,0,0,0.2);
 }
 
 @media(max-width:768px){
@@ -182,20 +181,18 @@ height:55vh;
 
 <div class="sidebar">
 
-<h1>🚚 MAP LOGISTICS PRO</h1>
+<h1>🚚 MAP LOGISTICS</h1>
 
 <div class="instrucciones">
 
-📌 <b>FUNCIONES</b><br><br>
+📌 <b>INSTRUCCIONES</b><br><br>
 
-✅ Búsqueda inteligente Colombia<br>
-✅ Conjuntos y barrios<br>
-✅ Ruta real por carreteras<br>
-✅ Optimización automática<br>
-✅ Inicio personalizado<br>
-✅ Final personalizado<br>
-✅ WhatsApp y llamadas<br>
-✅ Edición y eliminación<br>
+1. Busca direcciones colombianas reales.<br>
+2. También puedes tocar el mapa.<br>
+3. Guarda pedidos.<br>
+4. Optimiza rutas automáticamente.<br>
+5. Navega con Google Maps.<br>
+6. Usa llamadas y WhatsApp.
 
 </div>
 
@@ -246,14 +243,18 @@ id="barrio"
 
 <div class="form-group">
 
-<label>Dirección o Zona Cercana</label>
+<label>Dirección</label>
+
+<small>
+Ej:
+CL 80 # 10-35
+</small>
 
 <input
 type="text"
 id="direccion"
-placeholder="Ej: Conjunto Reservas de Castilla"
-autocomplete="off"
-oninput="buscarSugerencias()"
+placeholder="Ej: CRA 7 # 45 SUR 20"
+onkeyup="buscarSugerencias()"
 />
 
 <div id="sugerencias"></div>
@@ -293,6 +294,22 @@ oninput="this.value=this.value.replace(/[^0-9]/g,'')"
 
 </div>
 
+<div class="form-group">
+
+<label>
+Finalizar ruta en:
+</label>
+
+<select id="finalizarRuta">
+
+<option value="">
+Último pedido
+</option>
+
+</select>
+
+</div>
+
 <button
 class="btn-primary"
 onclick="guardarPedido()"
@@ -307,38 +324,6 @@ onclick="optimizarRuta()"
 🛣️ Optimizar Ruta
 </button>
 
-<div class="form-group">
-
-<label>
-Punto de Inicio
-</label>
-
-<select id="inicioRuta">
-
-<option value="gps">
-Mi ubicación actual
-</option>
-
-</select>
-
-</div>
-
-<div class="form-group">
-
-<label>
-Último destino
-</label>
-
-<select id="ultimoDestino">
-
-<option value="">
-Automático
-</option>
-
-</select>
-
-</div>
-
 <div id="listaPedidos"></div>
 
 </div>
@@ -347,9 +332,9 @@ Automático
 
 <script>
 
-// =====================
+// =====================================
 // MAPA
-// =====================
+// =====================================
 
 const map = L.map('map').setView(
 [4.7110,-74.0721],
@@ -363,9 +348,9 @@ attribution:'© OpenStreetMap'
 }
 ).addTo(map);
 
-// =====================
+// =====================================
 // VARIABLES
-// =====================
+// =====================================
 
 let pedidos = [];
 let markers = [];
@@ -374,9 +359,9 @@ let rutaLayer = null;
 let puntoSeleccionado = null;
 let markerSeleccionado = null;
 
-// =====================
+// =====================================
 // GPS
-// =====================
+// =====================================
 
 navigator.geolocation.getCurrentPosition(position=>{
 
@@ -403,17 +388,11 @@ L.marker([lat,lon])
 
 });
 
-// =====================
-// BUSQUEDA INTELIGENTE
-// =====================
+// =====================================
+// BUSCAR DIRECCIONES
+// =====================================
 
-let timeoutBusqueda;
-
-function buscarSugerencias(){
-
-clearTimeout(timeoutBusqueda);
-
-timeoutBusqueda = setTimeout(async ()=>{
+async function buscarSugerencias(){
 
 const texto =
 document.getElementById(
@@ -425,7 +404,7 @@ document.getElementById(
 'sugerencias'
 );
 
-if(texto.length < 2){
+if(texto.length < 3){
 
 contenedor.innerHTML='';
 
@@ -435,6 +414,12 @@ return;
 
 try{
 
+contenedor.innerHTML = `
+<div style="padding:10px;">
+🔍 Buscando dirección...
+</div>
+`;
+
 const municipio =
 document.getElementById(
 'municipio'
@@ -443,19 +428,14 @@ document.getElementById(
 const departamento =
 document.getElementById(
 'departamento'
-).value || '';
-
-const barrio =
-document.getElementById(
-'barrio'
-).value || '';
+).value || 'Cundinamarca';
 
 const query =
-`${texto} ${barrio} ${municipio} ${departamento} Colombia`;
+`${texto}, ${municipio}, ${departamento}, Colombia`;
 
 const response = await fetch(
 
-`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=10`
+`https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?f=json&singleLine=${encodeURIComponent(query)}&countryCode=COL&maxLocations=10`
 
 );
 
@@ -464,8 +444,10 @@ await response.json();
 
 contenedor.innerHTML='';
 
-if(!data.features ||
-!data.features.length){
+if(
+!data.candidates ||
+!data.candidates.length
+){
 
 contenedor.innerHTML=`
 
@@ -474,7 +456,7 @@ padding:10px;
 color:red;
 ">
 
-❌ No se encontraron coincidencias
+❌ No se encontraron direcciones
 
 </div>
 
@@ -484,26 +466,16 @@ return;
 
 }
 
-data.features.forEach(lugar=>{
+data.candidates.forEach(lugar=>{
 
-const props =
-lugar.properties || {};
-
-const nombre = `
-
-${props.name || ''}
-${props.street || ''}
-${props.housenumber || ''}
-${props.city || ''}
-${props.state || ''}
-
-`.replace(/\s+/g,' ').trim();
+const nombre =
+lugar.address;
 
 const lat =
-lugar.geometry.coordinates[1];
+lugar.location.y;
 
 const lon =
-lugar.geometry.coordinates[0];
+lugar.location.x;
 
 const item =
 document.createElement('div');
@@ -511,24 +483,8 @@ document.createElement('div');
 item.className =
 'sugerencia-item';
 
-item.innerHTML = `
-
-<div style="
-font-weight:bold;
-margin-bottom:3px;
-">
-📍 ${nombre}
-</div>
-
-<div style="
-font-size:12px;
-color:#666;
-">
-${lat.toFixed(5)}
- | ${lon.toFixed(5)}
-</div>
-
-`;
+item.innerHTML =
+`📍 ${nombre}`;
 
 item.onclick = ()=>{
 
@@ -548,15 +504,26 @@ contenedor.appendChild(item);
 
 console.log(error);
 
+contenedor.innerHTML=`
+
+<div style="
+padding:10px;
+color:red;
+">
+
+❌ Error buscando direcciones
+
+</div>
+
+`;
+
 }
 
-},400);
-
 }
 
-// =====================
+// =====================================
 // SELECCIONAR DIRECCION
-// =====================
+// =====================================
 
 function seleccionarSugerencia(
 direccion,
@@ -598,14 +565,17 @@ map.setView([lat,lon],17);
 
 }
 
-// =====================
+// =====================================
 // CLICK MAPA
-// =====================
+// =====================================
 
-map.on('click', async function(e){
+map.on('click',function(e){
 
-const lat = e.latlng.lat;
-const lon = e.latlng.lng;
+const lat =
+e.latlng.lat;
+
+const lon =
+e.latlng.lng;
 
 puntoSeleccionado = {
 lat,
@@ -614,7 +584,9 @@ lon
 
 if(markerSeleccionado){
 
-map.removeLayer(markerSeleccionado);
+map.removeLayer(
+markerSeleccionado
+);
 
 }
 
@@ -629,37 +601,11 @@ L.marker([lat,lon])
 
 .openPopup();
 
-try{
-
-const response = await fetch(
-
-`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
-
-);
-
-const data =
-await response.json();
-
-if(data.display_name){
-
-document.getElementById(
-'direccion'
-).value =
-data.display_name;
-
-}
-
-}catch(error){
-
-console.log(error);
-
-}
-
 });
 
-// =====================
+// =====================================
 // GUARDAR PEDIDO
-// =====================
+// =====================================
 
 function guardarPedido(){
 
@@ -723,7 +669,7 @@ return;
 if(!pedido.lat){
 
 alert(
-'Selecciona una dirección válida'
+'Selecciona una ubicación válida'
 );
 
 return;
@@ -742,9 +688,9 @@ limpiarFormulario();
 
 }
 
-// =====================
-// RENDER PEDIDOS
-// =====================
+// =====================================
+// MOSTRAR PEDIDOS
+// =====================================
 
 function renderPedidos(){
 
@@ -760,56 +706,32 @@ map.removeLayer(m);
 
 markers=[];
 
-// FINAL
-
-const selectFinal =
+const finalizar =
 document.getElementById(
-'ultimoDestino'
+'finalizarRuta'
 );
 
-selectFinal.innerHTML =
-'<option value="">Automático</option>';
+finalizar.innerHTML=`
 
-// INICIO
-
-const selectInicio =
-document.getElementById(
-'inicioRuta'
-);
-
-selectInicio.innerHTML = `
-<option value="gps">
-Mi ubicación actual
+<option value="">
+Último pedido
 </option>
+
 `;
 
+pedidos.forEach(p=>{
+
+finalizar.innerHTML += `
+
+<option value="${p.lat},${p.lon}">
+${p.cliente}
+</option>
+
+`;
+
+});
+
 pedidos.forEach((pedido,index)=>{
-
-// FINAL
-
-const option =
-document.createElement('option');
-
-option.value = pedido.id;
-
-option.textContent =
-`${pedido.cliente} - ${pedido.direccion}`;
-
-selectFinal.appendChild(option);
-
-// INICIO
-
-const optionInicio =
-document.createElement('option');
-
-optionInicio.value = pedido.id;
-
-optionInicio.textContent =
-`${pedido.cliente}`;
-
-selectInicio.appendChild(optionInicio);
-
-// ICONO
 
 const icono =
 L.divIcon({
@@ -857,20 +779,16 @@ ${pedido.direccion}
 
 marker.bindTooltip(
 
-`${pedido.cliente}`,
+`${index+1}. ${pedido.cliente}`,
 
 {
 permanent:true,
-direction:'top',
-offset:[0,-20],
-className:'cliente-label'
+direction:'top'
 }
 
 );
 
 markers.push(marker);
-
-// CARD
 
 const div =
 document.createElement('div');
@@ -930,30 +848,6 @@ enviarWhatsapp(
 💬 WhatsApp
 </button>
 
-<button onclick="
-event.stopPropagation();
-editarPedido(${pedido.id})
-"
-style="
-background:#ffc107;
-color:black;
-margin-top:6px;
-">
-✏️ Editar
-</button>
-
-<button onclick="
-event.stopPropagation();
-eliminarPedido(${pedido.id})
-"
-style="
-background:#dc3545;
-color:white;
-margin-top:6px;
-">
-🗑️ Eliminar
-</button>
-
 `;
 
 document.getElementById(
@@ -964,13 +858,15 @@ document.getElementById(
 
 }
 
-// =====================
-// OPTIMIZACION INTELIGENTE
-// =====================
+// =====================================
+// OPTIMIZAR RUTA REAL
+// =====================================
 
 async function optimizarRuta(){
 
 if(pedidos.length < 1)return;
+
+try{
 
 if(rutaLayer){
 
@@ -980,183 +876,43 @@ rutaLayer
 
 }
 
-let pedidosRuta = [...pedidos];
+let coordenadas = [];
 
-// INICIO
+if(window.miUbicacion){
 
-const inicioID =
-document.getElementById(
-'inicioRuta'
-).value;
-
-let inicioFijo = null;
-
-if(inicioID !== 'gps'){
-
-inicioFijo =
-pedidosRuta.find(
-p=>p.id == inicioID
-);
-
-pedidosRuta =
-pedidosRuta.filter(
-p=>p.id != inicioID
-);
-
-}
-
-// FINAL
-
-const ultimoID =
-document.getElementById(
-'ultimoDestino'
-).value;
-
-let finalFijo = null;
-
-if(ultimoID){
-
-finalFijo =
-pedidosRuta.find(
-p=>p.id == ultimoID
-);
-
-pedidosRuta =
-pedidosRuta.filter(
-p=>p.id != ultimoID
-);
-
-}
-
-// PUNTO INICIAL
-
-let puntoActual = null;
-
-if(inicioFijo){
-
-puntoActual = inicioFijo;
-
-}else if(window.miUbicacion){
-
-puntoActual = {
-lat:window.miUbicacion.lat,
-lon:window.miUbicacion.lon
-};
-
-}else{
-
-puntoActual = pedidosRuta[0];
-
-}
-
-// ORDENAMIENTO
-
-const optimizados = [];
-
-while(pedidosRuta.length){
-
-let masCercano = null;
-let distanciaMin = Infinity;
-let index = 0;
-
-pedidosRuta.forEach((pedido,i)=>{
-
-const distancia =
-map.distance(
-[puntoActual.lat,puntoActual.lon],
-[pedido.lat,pedido.lon]
-);
-
-if(distancia < distanciaMin){
-
-distanciaMin = distancia;
-masCercano = pedido;
-index = i;
-
-}
-
-});
-
-optimizados.push(masCercano);
-
-puntoActual = masCercano;
-
-pedidosRuta.splice(index,1);
-
-}
-
-// RUTA FINAL
-
-let rutaFinal = [];
-
-if(inicioFijo){
-
-rutaFinal.push(inicioFijo);
-
-}
-
-rutaFinal = [
-...rutaFinal,
-...optimizados
-];
-
-if(finalFijo){
-
-rutaFinal = rutaFinal.filter(
-p=>p.id != finalFijo.id
-);
-
-rutaFinal.push(finalFijo);
-
-}
-
-// ACTUALIZAR ORDEN
-
-pedidos = [...rutaFinal];
-
-renderPedidos();
-
-guardarStorage();
-
-// COORDS
-
-const coords = [];
-
-// GPS
-
-if(
-inicioID === 'gps'
-&&
-window.miUbicacion
-){
-
-coords.push(
+coordenadas.push(
 `${window.miUbicacion.lon},${window.miUbicacion.lat}`
 );
 
 }
 
-// PEDIDOS
+pedidos.forEach(p=>{
 
-rutaFinal.forEach(p=>{
-
-coords.push(
+coordenadas.push(
 `${p.lon},${p.lat}`
 );
 
 });
 
-// OSRM
+const finalizarEn =
+document.getElementById(
+'finalizarRuta'
+).value;
 
-const url = `
-https://router.project-osrm.org/route/v1/driving/
-${coords.join(';')}
-?overview=full
-&geometries=geojson
-&steps=true
-`;
+if(finalizarEn){
 
-try{
+const partes =
+finalizarEn.split(',');
+
+coordenadas.push(
+`${partes[1]},${partes[0]}`
+);
+
+}
+
+const url =
+
+`https://router.project-osrm.org/route/v1/driving/${coordenadas.join(';')}?overview=full&geometries=geojson`;
 
 const response =
 await fetch(url);
@@ -1164,10 +920,13 @@ await fetch(url);
 const data =
 await response.json();
 
-if(!data.routes.length){
+if(
+!data.routes ||
+!data.routes.length
+){
 
 alert(
-'No se pudo generar la ruta'
+'No fue posible generar la ruta'
 );
 
 return;
@@ -1176,18 +935,22 @@ return;
 
 const ruta =
 data.routes[0]
-.geometry
-.coordinates
-.map(c=>[
+.geometry.coordinates;
+
+const latlngs =
+ruta.map(c=>[
 c[1],
 c[0]
 ]);
 
 rutaLayer =
-L.polyline(ruta,{
+L.polyline(
+latlngs,
+{
 color:'blue',
 weight:6
-}).addTo(map);
+}
+).addTo(map);
 
 map.fitBounds(
 rutaLayer.getBounds()
@@ -1197,124 +960,17 @@ rutaLayer.getBounds()
 
 console.log(error);
 
-}
-
-}
-
-// =====================
-// EDITAR
-// =====================
-
-function editarPedido(id){
-
-const pedido =
-pedidos.find(p=>p.id === id);
-
-if(!pedido)return;
-
-document.getElementById(
-'departamento'
-).value = pedido.departamento;
-
-document.getElementById(
-'municipio'
-).value = pedido.municipio;
-
-document.getElementById(
-'barrio'
-).value = pedido.barrio;
-
-document.getElementById(
-'direccion'
-).value = pedido.direccion;
-
-document.getElementById(
-'cliente'
-).value = pedido.cliente;
-
-document.getElementById(
-'telefono'
-).value = pedido.telefono;
-
-document.getElementById(
-'observaciones'
-).value = pedido.observaciones;
-
-puntoSeleccionado = {
-lat:pedido.lat,
-lon:pedido.lon
-};
-
-if(markerSeleccionado){
-
-map.removeLayer(markerSeleccionado);
-
-}
-
-markerSeleccionado =
-L.marker([
-pedido.lat,
-pedido.lon
-])
-
-.addTo(map)
-
-.bindPopup(
-'✏️ Editando pedido'
-)
-
-.openPopup();
-
-map.setView(
-[pedido.lat,pedido.lon],
-17
-);
-
-pedidos = pedidos.filter(
-p=>p.id !== id
-);
-
-guardarStorage();
-
-renderPedidos();
-
-optimizarRuta();
-
 alert(
-'Pedido cargado para editar'
+'Error optimizando ruta'
 );
 
 }
 
-// =====================
-// ELIMINAR
-// =====================
-
-function eliminarPedido(id){
-
-const confirmar =
-confirm(
-'¿Eliminar este pedido?'
-);
-
-if(!confirmar)return;
-
-pedidos =
-pedidos.filter(
-p=>p.id !== id
-);
-
-guardarStorage();
-
-renderPedidos();
-
-optimizarRuta();
-
 }
 
-// =====================
+// =====================================
 // FUNCIONES
-// =====================
+// =====================================
 
 function abrirRuta(lat,lon){
 
@@ -1341,9 +997,9 @@ encodeURIComponent(
 
 `Hola ${cliente},
 
-Tu pedido va en camino 🚚
+Tu pedido ha sido entregado con satisfacción 🚚
 
-MAP LOGISTICS PRO`
+MAP LOGISTICS`
 
 );
 
@@ -1354,9 +1010,9 @@ window.open(
 
 }
 
-// =====================
+// =====================================
 // STORAGE
-// =====================
+// =====================================
 
 function guardarStorage(){
 
