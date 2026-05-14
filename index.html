@@ -303,7 +303,7 @@ Finalizar ruta en:
 <select id="finalizarRuta">
 
 <option value="">
-Último pedido
+Optimizar automáticamente
 </option>
 
 </select>
@@ -714,7 +714,7 @@ document.getElementById(
 finalizar.innerHTML=`
 
 <option value="">
-Último pedido
+Optimizar automáticamente
 </option>
 
 `;
@@ -909,7 +909,13 @@ rutaLayer
 
 }
 
+// =====================================
+// COORDENADAS
+// =====================================
+
 let coordenadas = [];
+
+// GPS INICIAL
 
 if(window.miUbicacion){
 
@@ -919,6 +925,8 @@ coordenadas.push(
 
 }
 
+// PEDIDOS
+
 pedidos.forEach(p=>{
 
 coordenadas.push(
@@ -926,6 +934,18 @@ coordenadas.push(
 );
 
 });
+
+// =====================================
+// URL OSRM TRIP
+// =====================================
+
+let url =
+
+`https://router.project-osrm.org/trip/v1/driving/${coordenadas.join(';')}?source=first&roundtrip=false&overview=full&geometries=geojson`;
+
+// =====================================
+// PUNTO FINAL
+// =====================================
 
 const finalizarEn =
 document.getElementById(
@@ -941,11 +961,15 @@ coordenadas.push(
 `${partes[1]},${partes[0]}`
 );
 
+url =
+
+`https://router.project-osrm.org/trip/v1/driving/${coordenadas.join(';')}?source=first&destination=last&roundtrip=false&overview=full&geometries=geojson`;
+
 }
 
-const url =
-
-`https://router.project-osrm.org/route/v1/driving/${coordenadas.join(';')}?overview=full&geometries=geojson`;
+// =====================================
+// CONSULTA
+// =====================================
 
 const response =
 await fetch(url);
@@ -954,20 +978,24 @@ const data =
 await response.json();
 
 if(
-!data.routes ||
-!data.routes.length
+!data.trips ||
+!data.trips.length
 ){
 
 alert(
-'No fue posible generar la ruta'
+'No fue posible optimizar la ruta'
 );
 
 return;
 
 }
 
+// =====================================
+// RUTA
+// =====================================
+
 const ruta =
-data.routes[0]
+data.trips[0]
 .geometry.coordinates;
 
 const latlngs =
@@ -975,6 +1003,10 @@ ruta.map(c=>[
 c[1],
 c[0]
 ]);
+
+// =====================================
+// DIBUJAR
+// =====================================
 
 rutaLayer =
 L.polyline(
@@ -988,6 +1020,53 @@ weight:6
 map.fitBounds(
 rutaLayer.getBounds()
 );
+
+// =====================================
+// NUEVO ORDEN
+// =====================================
+
+const orden =
+data.waypoints;
+
+let nuevosPedidos = [];
+
+// QUITAR GPS
+
+orden.forEach(w=>{
+
+if(w.waypoint_index === 0)return;
+
+const lat =
+w.location[1];
+
+const lon =
+w.location[0];
+
+const pedido =
+pedidos.find(p=>
+
+Math.abs(p.lat-lat)<0.0001 &&
+Math.abs(p.lon-lon)<0.0001
+
+);
+
+if(pedido){
+
+nuevosPedidos.push(pedido);
+
+}
+
+});
+
+if(nuevosPedidos.length){
+
+pedidos = nuevosPedidos;
+
+guardarStorage();
+
+renderPedidos();
+
+}
 
 }catch(error){
 
@@ -1098,7 +1177,11 @@ JSON.parse(guardados);
 
 renderPedidos();
 
+setTimeout(()=>{
+
 optimizarRuta();
+
+},1000);
 
 }
 
