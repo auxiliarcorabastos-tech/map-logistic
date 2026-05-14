@@ -848,6 +848,13 @@ enviarWhatsapp(
 💬 WhatsApp
 </button>
 
+<button class="btn-danger" onclick="
+event.stopPropagation();
+eliminarPedido(${pedido.id})
+">
+🗑️ Eliminar
+</button>
+
 `;
 
 document.getElementById(
@@ -855,6 +862,32 @@ document.getElementById(
 ).appendChild(div);
 
 });
+
+}
+
+// =====================================
+// ELIMINAR PEDIDO
+// =====================================
+
+function eliminarPedido(id){
+
+const confirmar =
+confirm(
+'¿Eliminar este pedido?'
+);
+
+if(!confirmar)return;
+
+pedidos =
+pedidos.filter(
+p=>p.id !== id
+);
+
+guardarStorage();
+
+renderPedidos();
+
+optimizarRuta();
 
 }
 
